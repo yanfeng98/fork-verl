@@ -31,6 +31,14 @@ verl is fast with:
 
 </p>
 
+## Installation
+
+```bash
+python -m venv env
+source env/bin/activate
+pip install --upgrade pip -i https://pypi.tuna.tsinghua.edu.cn/simple
+```
+
 ## News
 - [2025/03] verl v0.3.0.post1 is released! See [release note](https://github.com/volcengine/verl/releases/) for details.
 - [2025/03] [DAPO](https://dapo-sia.github.io/) is the open-sourced SOTA RL algorithm that achieves 50 points on AIME 2024 based on the Qwen2.5-32B pre-trained model, surpassing the previous SOTA achieved by DeepSeek's GRPO (DeepSeek-R1-Zero-Qwen-32B). DAPO's training is fully powered by verl and the reproduction code is [publicly available](https://github.com/volcengine/verl/tree/gm-tyx/puffin/main/recipe/dapo) now.
