@@ -37,6 +37,9 @@ verl is fast with:
 python -m venv env
 source env/bin/activate
 pip install --upgrade pip -i https://pypi.tuna.tsinghua.edu.cn/simple
+pip install torch ninja -i https://pypi.tuna.tsinghua.edu.cn/simple
+pip install flash-attn --no-build-isolation -i https://pypi.tuna.tsinghua.edu.cn/simple
+pip install -e . -i https://pypi.tuna.tsinghua.edu.cn/simple
 ```
 
 ## News
