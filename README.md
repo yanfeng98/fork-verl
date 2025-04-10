@@ -34,11 +34,14 @@ verl is fast with:
 ## Installation
 
 ```bash
+# python 12
 python -m venv env
 source env/bin/activate
 pip install --upgrade pip -i https://pypi.tuna.tsinghua.edu.cn/simple
-pip install torch ninja -i https://pypi.tuna.tsinghua.edu.cn/simple
-pip install flash-attn --no-build-isolation -i https://pypi.tuna.tsinghua.edu.cn/simple
+# torch 2.6
+pip install torch -i https://pypi.tuna.tsinghua.edu.cn/simple
+# https://github.com/Dao-AILab/flash-attention/releases
+pip install flash_attn-2.7.4.post1+cu12torch2.6cxx11abiTRUE-cp312-cp312-linux_x86_64.whl
 pip install -e . -i https://pypi.tuna.tsinghua.edu.cn/simple
 ```
 
