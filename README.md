@@ -1,15 +1,5 @@
 <h1 style="text-align: center;">verl: Volcano Engine Reinforcement Learning for LLMs</h1>
 
-[![GitHub Repo stars](https://img.shields.io/github/stars/volcengine/verl)](https://github.com/volcengine/verl/stargazers)
-![GitHub forks](https://img.shields.io/github/forks/volcengine/verl)
-[![Twitter](https://img.shields.io/twitter/follow/verl_project)](https://twitter.com/verl_project)
-<a href="https://join.slack.com/t/verlgroup/shared_invite/zt-2w5p9o4c3-yy0x2Q56s_VlGLsJ93A6vA"><img src="https://img.shields.io/badge/Slack-verl-blueviolet?logo=slack&amp"></a>
-<a href="https://arxiv.org/pdf/2409.19256"><img src="https://img.shields.io/static/v1?label=EuroSys&message=Paper&color=red"></a>
-![GitHub contributors](https://img.shields.io/github/contributors/volcengine/verl)
-[![Documentation](https://img.shields.io/badge/documentation-blue)](https://verl.readthedocs.io/en/latest/)
-<a href="https://raw.githubusercontent.com/eric-haibin-lin/verl-community/refs/heads/main/WeChat.JPG"><img src="https://img.shields.io/badge/微信-green?logo=wechat&amp"></a>
-
-
 verl is a flexible, efficient and production-ready RL training library for large language models (LLMs).
 
 verl is the open-source version of **[HybridFlow: A Flexible and Efficient RLHF Framework](https://arxiv.org/abs/2409.19256v2)** paper.
@@ -34,23 +24,7 @@ verl is fast with:
 </p>
 
 ## News
-- [2025/05] verl will be presented at [GOSIM x PyTorch Day 2025](https://paris2025.gosim.org/). See you in Paris!
-- [2025/04] We will give a tutorial about latest post-training techniques and programming guide for verl at [ICLR 2025](https://iclr.cc/virtual/2025/calendar?filter_events=Expo+Talk+Panel&filter_rooms=). See you in Singapore!
-- [2025/03] verl v0.3.0.post1 is released! See [release note](https://github.com/volcengine/verl/releases/) for details.
 - [2025/03] [DAPO](https://dapo-sia.github.io/) is the open-sourced SOTA RL algorithm that achieves 50 points on AIME 2024 based on the Qwen2.5-32B pre-trained model, surpassing the previous SOTA achieved by DeepSeek's GRPO (DeepSeek-R1-Zero-Qwen-32B). DAPO's training is fully powered by verl and the reproduction code is [publicly available](https://github.com/volcengine/verl/tree/gm-tyx/puffin/main/recipe/dapo) now.
-- [2025/03] We introduced the programming model of verl at the [vLLM Beijing Meetup](https://mp.weixin.qq.com/s/n77GibL2corAtQHtVEAzfg) and [verl intro and updates](https://github.com/eric-haibin-lin/verl-community/blob/main/slides/verl-lmsys-meetup.pdf) at the [LMSys Meetup](https://lu.ma/ntjrr7ig) in Sunnyvale mid March.
-<details><summary> more... </summary>
-<ul>
-  <li>[2025/02] verl v0.2.0.post2 is released!</li>
-  <li>[2025/01] [Doubao-1.5-pro](https://team.doubao.com/zh/special/doubao_1_5_pro) is released with SOTA-level performance on LLM & VLM. The RL scaling preview model is trained using verl, reaching OpenAI O1-level performance on math benchmarks (70.0 pass@1 on AIME).</li>
-  <li>[2025/03] We will present verl(HybridFlow) at EuroSys 2025. See you in Rotterdam!</li>
-  <li>[2025/02] We presented verl in the <a href="https://lu.ma/ji7atxux">Bytedance/NVIDIA/Anyscale Ray Meetup</a>. See you in San Jose!</li>
-  <li>[2024/12] verl is presented at Ray Forward 2024. Slides available <a href="https://github.com/eric-haibin-lin/verl-community/blob/main/slides/Ray_Forward_2024_%E5%B7%AB%E9%94%A1%E6%96%8C.pdf">here</a></li>
-  <li>[2024/10] verl is presented at Ray Summit. <a href="https://www.youtube.com/watch?v=MrhMcXkXvJU&list=PLzTswPQNepXntmT8jr9WaNfqQ60QwW7-U&index=37">Youtube video</a> available.</li>
-  <li>[2024/12] The team presented <a href="https://neurips.cc/Expo/Conferences/2024/workshop/100677">Post-training LLMs: From Algorithms to Infrastructure</a> at NeurIPS 2024. <a href="https://github.com/eric-haibin-lin/verl-data/tree/neurips">Slides</a> and <a href="https://neurips.cc/Expo/Conferences/2024/workshop/100677">video</a> available.</li>
-  <li>[2024/08] HybridFlow (verl) is accepted to EuroSys 2025.</li>
-</ul>   
-</details>
 
 ## Key Features
 
@@ -65,15 +39,23 @@ verl is fast with:
 - Scales up to 70B models and hundreds of GPUs.
 - Experiment tracking with wandb, swanlab, mlflow and tensorboard.
 
-## Upcoming Features
-- Roadmap https://github.com/volcengine/verl/issues/710 
-- DeepSeek 671b optimizations with Megatron v0.11 https://github.com/volcengine/verl/issues/708 
-- Multi-turn rollout optimizations
-- Environment interactions
-
 ## Getting Started
 
 <a href="https://verl.readthedocs.io/en/latest/index.html"><b>Documentation</b></a>
+
+## Installation
+
+```bash
+# python 12
+python -m venv env
+source env/bin/activate
+pip install --upgrade pip -i https://pypi.tuna.tsinghua.edu.cn/simple
+# torch 2.6
+pip install torch -i https://pypi.tuna.tsinghua.edu.cn/simple
+# https://github.com/Dao-AILab/flash-attention/releases
+pip install flash_attn-2.7.4.post1+cu12torch2.6cxx11abiFALSE-cp312-cp312-linux_x86_64.whl
+pip install -e . -i https://pypi.tuna.tsinghua.edu.cn/simple
+```
 
 **Quickstart:**
 - [Installation](https://verl.readthedocs.io/en/latest/start/install.html)
@@ -104,34 +86,11 @@ verl is fast with:
   - [Add Models with the Megatron-LM Backend](https://verl.readthedocs.io/en/latest/advance/megatron_extension.html)
   - [Deployment using Separate GPU Resources](https://github.com/volcengine/verl/tree/main/examples/split_placement)
 
-**Blogs from the community**
-- [使用verl进行GRPO分布式强化学习训练最佳实践](https://www.volcengine.com/docs/6459/1463942)
-- [HybridFlow veRL 原文浅析](https://github.com/zhaochenyang20/Awesome-ML-SYS-Tutorial/blob/main/rlhf/verl/readme.md)
-- [最高提升20倍吞吐量！豆包大模型团队发布全新 RLHF 框架，现已开源！](https://team.doubao.com/en/blog/%E6%9C%80%E9%AB%98%E6%8F%90%E5%8D%8720%E5%80%8D%E5%90%9E%E5%90%90%E9%87%8F-%E8%B1%86%E5%8C%85%E5%A4%A7%E6%A8%A1%E5%9E%8B%E5%9B%A2%E9%98%9F%E5%8F%91%E5%B8%83%E5%85%A8%E6%96%B0-rlhf-%E6%A1%86%E6%9E%B6-%E7%8E%B0%E5%B7%B2%E5%BC%80%E6%BA%90)
-
-
 ## Performance Tuning Guide
 The performance is essential for on-policy RL algorithm. We have written a detailed [performance tuning guide](https://verl.readthedocs.io/en/latest/perf/perf_tuning.html) to help you optimize performance.
 
 ## Use vLLM v0.8.2
 veRL now supports vLLM>=0.8.2 when using FSDP as the training backend. Please refer to [this document](https://github.com/volcengine/verl/blob/main/docs/README_vllm0.8.md) for installation guide and more information. Please avoid vllm 0.7.x which contains bugs that may lead to OOMs and unexpected errors.
-
-## Citation and acknowledgement
-
-If you find the project helpful, please cite:
-- [HybridFlow: A Flexible and Efficient RLHF Framework](https://arxiv.org/abs/2409.19256v2)
-- [A Framework for Training Large Language Models for Code Generation via Proximal Policy Optimization](https://i.cs.hku.hk/~cwu/papers/gmsheng-NL2Code24.pdf)
-
-```bibtex
-@article{sheng2024hybridflow,
-  title   = {HybridFlow: A Flexible and Efficient RLHF Framework},
-  author  = {Guangming Sheng and Chi Zhang and Zilingfeng Ye and Xibin Wu and Wang Zhang and Ru Zhang and Yanghua Peng and Haibin Lin and Chuan Wu},
-  year    = {2024},
-  journal = {arXiv preprint arXiv: 2409.19256}
-}
-```
-
-verl is inspired by the design of Nemo-Aligner, Deepspeed-chat and OpenRLHF. The project is adopted and contributed by Bytedance, Anyscale, LMSys.org, [Alibaba Qwen team](https://github.com/QwenLM/), Shanghai AI Lab, Tsinghua University, UC Berkeley, UCLA, UIUC, University of Hong Kong, ke.com, [All Hands AI](https://www.all-hands.dev/), [ModelBest](http://modelbest.cn/), [OpenPipe](https://openpipe.ai/), JD AI Lab, Microsoft Research, [StepFun](https://www.stepfun.com/), Amazon, Linkedin, Meituan, [Camel-AI](https://www.camel-ai.org/), [OpenManus](https://github.com/OpenManus), [Prime Intellect](https://www.primeintellect.ai/), NVIDIA research, [Baichuan](https://www.baichuan-ai.com/home), and many more.
 
 ## Awesome work using verl
 - [TinyZero](https://github.com/Jiayi-Pan/TinyZero): a reproduction of **DeepSeek R1 Zero** recipe for reasoning tasks ![GitHub Repo stars](https://img.shields.io/github/stars/Jiayi-Pan/TinyZero)
@@ -163,10 +122,7 @@ verl is inspired by the design of Nemo-Aligner, Deepspeed-chat and OpenRLHF. The
 - [AdaRFT](https://github.com/uscnlp-lime/verl): Efficient Reinforcement Finetuning via **Adaptive Curriculum Learning** ![GitHub Repo stars](https://img.shields.io/github/stars/uscnlp-lime/verl)
 - [Trust Region Preference Approximation](https://github.com/XueruiSu/Trust-Region-Preference-Approximation): A simple and stable **reinforcement learning algorithm** for LLM reasoning.  ![GitHub Repo stars](https://img.shields.io/github/stars/XueruiSu/Trust-Region-Preference-Approximation)
 
-## Contribution Guide
-Contributions from the community are welcome! Please check out our [project roadmap](https://github.com/volcengine/verl/issues/710) and [good first issues](https://github.com/volcengine/verl/issues?q=is%3Aissue%20state%3Aopen%20label%3A%22good%20first%20issue%22) to see where you can contribute.
-
-### Code formatting
+## Code formatting
 We use yapf (Google style) to enforce strict code formatting when reviewing PRs. To reformat your code locally, make sure you have installed the **latest** version of `yapf`
 ```bash
 pip3 install yapf --upgrade
@@ -175,4 +131,3 @@ Then, make sure you are at top level of verl repo and run
 ```bash
 bash scripts/format.sh
 ```
-We are HIRING! Send us an [email](mailto:haibin.lin@bytedance.com) if you are interested in internship/FTE opportunities in MLSys/LLM reasoning/multimodal alignment.
