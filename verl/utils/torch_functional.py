@@ -1,16 +1,3 @@
-# Copyright 2024 Bytedance Ltd. and/or its affiliates
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
 """
 Contain small torch utilities
 """
@@ -190,9 +177,6 @@ def broadcast_dict_tensor(tensors: Union[Dict[str, torch.Tensor], TensorDict], s
 
 def allgather_dict_tensors(tensors: Union[Dict[str, torch.Tensor], TensorDict], size, group, dim=0):
     """
-    TODO: optimize this.
-    - We can use async ops
-    - We can use only one allgather
     Args:
         tensors:
         size:
@@ -205,8 +189,8 @@ def allgather_dict_tensors(tensors: Union[Dict[str, torch.Tensor], TensorDict], 
         is_tensor_dict = True
         tensors_as_dict = tensors.to_dict()
     else:
-        tensors_as_dict = tensors
         is_tensor_dict = False
+        tensors_as_dict = tensors
 
     output = {}
     sorted_keys = sorted(tensors_as_dict.keys())

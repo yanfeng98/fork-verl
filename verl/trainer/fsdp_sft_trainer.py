@@ -1,21 +1,5 @@
-# Copyright 2024 Bytedance Ltd. and/or its affiliates
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
 """
 A lightweight one-file FSDP SFT Trainer
-TODO(zhangchi.usc1992)
-- Add calculation of mfu
-- Add validation
 """
 
 import os
@@ -23,35 +7,39 @@ import os
 os.environ['NCCL_DEBUG'] = 'WARN'
 os.environ['TOKENIZERS_PARALLELISM'] = 'true'
 
-import logging
 import re
-from contextlib import nullcontext
-import torch
-import torch.distributed
-from torch import nn, optim
-from torch.distributed.fsdp import FullyShardedDataParallel as FSDP, MixedPrecision, ShardingStrategy, CPUOffload
+import hydra
+import logging
 from tqdm import tqdm
-from transformers import AutoTokenizer, AutoModelForCausalLM, PreTrainedModel, AutoConfig
-from verl.utils.torch_functional import get_cosine_schedule_with_warmup
 from tensordict import TensorDict
+from contextlib import nullcontext
+
+import torch
+from torch import nn, optim
 from torch.utils.data import DataLoader, DistributedSampler
+from torch.distributed.device_mesh import DeviceMesh, init_device_mesh
+from torch.distributed.fsdp import FullyShardedDataParallel as FSDP, MixedPrecision, ShardingStrategy, CPUOffload
+
+from peft import LoraConfig, TaskType, get_peft_model
+from transformers import AutoTokenizer, AutoModelForCausalLM, PreTrainedModel, AutoConfig
 from flash_attn.bert_padding import pad_input, unpad_input, rearrange, index_first_axis
 
+from verl.utils import hf_tokenizer
+from verl.utils.distributed import initialize_global_process_group
+from verl.utils.torch_functional import get_cosine_schedule_with_warmup
 from verl.utils.fsdp_utils import get_fsdp_wrap_policy, init_fn, get_init_weight_context_manager
 from verl.utils.dataset import SFTDataset
 from verl.utils.dataset.multiturn_sft_dataset import MultiTurnSFTDataset
 from verl.utils.fs import copy_to_local
 from verl.utils.tracking import Tracking
-from verl.utils.ulysses import get_ulysses_sequence_parallel_world_size, set_ulysses_sequence_parallel_group
-from torch.distributed.device_mesh import DeviceMesh
+from verl.utils.ulysses import get_ulysses_sequence_parallel_world_size, ulysses_pad_and_slice_inputs, gather_outpus_and_unpad
+from verl.workers.sharding_manager import FSDPUlyssesShardingManager
+
 
 import verl.utils.hdfs_io as hdfs_io
 from verl.utils.debug import log_gpu_memory_usage
-from peft import LoraConfig, TaskType, get_peft_model
 
-from verl.workers.sharding_manager import FSDPUlyssesShardingManager
-from verl.utils.ulysses import ulysses_pad_and_slice_inputs, gather_outpus_and_unpad
-from verl import DataProto
+
 
 logger = logging.getLogger(__file__)
 logger.setLevel(os.getenv('VERL_SFT_LOGGING_LEVEL', 'WARN'))
@@ -83,10 +71,10 @@ class FSDPSFTTrainer(object):
         self.device_mesh = device_mesh
         self.ulysses_device_mesh = ulysses_device_mesh
         self.sharding_manager = FSDPUlyssesShardingManager(self.ulysses_device_mesh)
+        
         # build tokenizer first
-        local_model_path = copy_to_local(src=self.config.model.partial_pretrain, verbose=True)
-        from verl.utils import hf_tokenizer
-        self.tokenizer = hf_tokenizer(local_model_path, trust_remote_code=self.config.model.trust_remote_code)
+        local_model_path = self.config.model.partial_pretrain
+        self.tokenizer: AutoTokenizer = hf_tokenizer(local_model_path, trust_remote_code=self.config.model.trust_remote_code)
         if self.config.data.chat_template is not None:
             raise ValueError('Apply Chat template from config is not supported yet.')
 
@@ -516,24 +504,30 @@ class FSDPSFTTrainer(object):
             self.save_checkpoint(step=global_step)
 
 
-from verl.trainer.fsdp_sft_trainer import FSDPSFTTrainer
-import hydra
-
-from torch.distributed.device_mesh import init_device_mesh
-
-from verl.utils.distributed import initialize_global_process_group
-
-
 @hydra.main(config_path='config', config_name='sft_trainer', version_base=None)
 def main(config):
     local_rank, rank, world_size = initialize_global_process_group()
 
-    device_mesh = init_device_mesh(device_type='cuda', mesh_shape=(world_size,), mesh_dim_names=('fsdp',))
+    device_mesh: DeviceMesh = init_device_mesh(
+        device_type='cuda',
+        mesh_shape=(world_size,),
+        mesh_dim_names=('fsdp',)
+    )
     dp_size = world_size // config.ulysses_sequence_parallel_size
-    ulysses_device_mesh = init_device_mesh(device_type='cuda',
-                                           mesh_shape=(dp_size, config.ulysses_sequence_parallel_size),
-                                           mesh_dim_names=('dp', 'sp'))
-    trainer = FSDPSFTTrainer(config=config, device_mesh=device_mesh, ulysses_device_mesh=ulysses_device_mesh)
+    ulysses_device_mesh: DeviceMesh = init_device_mesh(
+        device_type='cuda',
+        mesh_shape=(
+            dp_size,
+            config.ulysses_sequence_parallel_size
+        ),
+        mesh_dim_names=('dp', 'sp')
+    )
+
+    trainer = FSDPSFTTrainer(
+        config=config,
+        device_mesh=device_mesh,
+        ulysses_device_mesh=ulysses_device_mesh
+    )
     trainer.fit()
 
 

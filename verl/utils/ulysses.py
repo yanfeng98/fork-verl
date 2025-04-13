@@ -1,22 +1,9 @@
-# Copyright 2024 Bytedance Ltd. and/or its affiliates
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
 """
 Utilities for DeepSpeed Ulysses Sequence Parallelism.
 DeepSpeed Ulysses Paper: https://arxiv.org/abs/2309.14509
 Inspired from: https://github.com/microsoft/DeepSpeed/blob/master/deepspeed/sequence/layer.py
 """
-from typing import Any, Optional, List, Tuple
+from typing import Any, Optional, Tuple
 
 import torch
 from torch import Tensor
@@ -26,20 +13,19 @@ from torch.distributed import ProcessGroup
 _ULYSSES_SEQUENCE_PARALLEL_GROUP = None
 
 
-def set_ulysses_sequence_parallel_group(group: dist.ProcessGroup):
-    """
-    Set ulysses sequence parallel process group.
-    """
-    global _ULYSSES_SEQUENCE_PARALLEL_GROUP
-    _ULYSSES_SEQUENCE_PARALLEL_GROUP = group
-
-
 def get_ulysses_sequence_parallel_group() -> Optional[dist.ProcessGroup]:
     """
     Get ulysses sequence parallel process group.
     """
     global _ULYSSES_SEQUENCE_PARALLEL_GROUP
     return _ULYSSES_SEQUENCE_PARALLEL_GROUP
+
+def set_ulysses_sequence_parallel_group(group: dist.ProcessGroup):
+    """
+    Set ulysses sequence parallel process group.
+    """
+    global _ULYSSES_SEQUENCE_PARALLEL_GROUP
+    _ULYSSES_SEQUENCE_PARALLEL_GROUP = group
 
 
 def get_ulysses_sequence_parallel_world_size(group: ProcessGroup = None) -> int:

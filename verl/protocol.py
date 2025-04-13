@@ -1,16 +1,3 @@
-# Copyright 2024 Bytedance Ltd. and/or its affiliates
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
 """
 Implement base data transfer protocol between any two functions, modules.
 We can subclass Protocol to define more detailed batch info with specific keys
@@ -27,9 +14,10 @@ import torch
 import tensordict
 from packaging import version
 from tensordict import TensorDict
-from torch.utils.data import DataLoader, Dataset
+from torch.utils.data import DataLoader
 
 from verl.utils.py_functional import union_two_dict
+from verl.utils.torch_functional import allgather_dict_tensors
 
 __all__ = ['DataProto', 'union_tensor_dict']
 
@@ -186,6 +174,57 @@ class DataProto:
         # perform necessary checking
         self.check_consistency()
 
+    def check_consistency(self):
+        """Check the consistency of the DataProto. Mainly for batch and non_tensor_batch
+        We expose this function as a public one so that user can call themselves directly
+        """
+        if self.batch is not None:
+            assert len(self.batch.batch_size) == 1, 'only support num_batch_dims=1'
+
+        if self.non_tensor_batch is not None:
+            for key, val in self.non_tensor_batch.items():
+                assert isinstance(val, np.ndarray)
+
+        if self.batch is not None and len(self.non_tensor_batch) != 0:
+            batch_size = self.batch.batch_size[0]
+            for key, val in self.non_tensor_batch.items():
+                assert isinstance(
+                    val, np.ndarray
+                ), f'data in the non_tensor_batch must be a numpy.array with dtype=object, but for {key=}, got {type(val)=}'
+                assert val.shape[0] == batch_size, f'key {key} length {len(val)} is not equal to batch size {batch_size}'
+
+    def chunk(self, chunks: int) -> List['DataProto']:
+        """Split the batch among dim=0 into chunks. The meta_info is passed to each DataProto after split.
+
+        Args:
+            chunks (int): the number of chunks to split on dim=0
+
+        Returns:
+            List[DataProto]: a list of DataProto after splitting
+        """
+        assert len(
+            self) % chunks == 0, f'only support equal chunk. Got size of DataProto {len(self)} and chunk {chunks}.'
+
+        if self.batch is not None:
+            batch_lst = self.batch.chunk(chunks=chunks, dim=0)
+        else:
+            batch_lst = [None for _ in range(chunks)]
+
+        non_tensor_batch_lst = [{} for _ in range(chunks)]
+        for key, val in self.non_tensor_batch.items():
+            assert isinstance(val, np.ndarray)
+            non_tensor_lst = np.array_split(val, chunks)
+            assert len(non_tensor_lst) == chunks
+            for i in range(chunks):
+                non_tensor_batch_lst[i][key] = non_tensor_lst[i]
+
+        output = []
+        for i in range(chunks):
+            output.append(
+                DataProto(batch=batch_lst[i], non_tensor_batch=non_tensor_batch_lst[i], meta_info=self.meta_info))
+
+        return output
+
     def __len__(self):
         if self.batch is not None:
             return self.batch.batch_size[0]
@@ -276,29 +315,6 @@ class DataProto:
         if prefix:
             message = f'{prefix}, ' + message
         print(message)
-
-    def check_consistency(self):
-        """Check the consistency of the DataProto. Mainly for batch and non_tensor_batch
-        We expose this function as a public one so that user can call themselves directly
-        """
-        if self.batch is not None:
-            assert len(self.batch.batch_size) == 1, 'only support num_batch_dims=1'
-
-        if self.non_tensor_batch is not None:
-            for key, val in self.non_tensor_batch.items():
-                assert isinstance(val, np.ndarray)
-
-        if self.batch is not None and len(self.non_tensor_batch) != 0:
-            # TODO: we can actually lift this restriction if needed
-            assert len(self.batch.batch_size) == 1, 'only support num_batch_dims=1 when non_tensor_batch is not empty.'
-
-            batch_size = self.batch.batch_size[0]
-            for key, val in self.non_tensor_batch.items():
-                assert isinstance(
-                    val, np.ndarray
-                ), f'data in the non_tensor_batch must be a numpy.array with dtype=object, but for {key=}, got {type(val)=}'
-                assert val.shape[
-                    0] == batch_size, f'key {key} length {len(val)} is not equal to batch size {batch_size}'
 
     @classmethod
     def from_single_dict(cls, data: Dict[str, Union[torch.Tensor, np.ndarray]], meta_info=None):
@@ -597,38 +613,6 @@ class DataProto:
 
         return iter(get_data())
 
-    def chunk(self, chunks: int) -> List['DataProto']:
-        """Split the batch among dim=0 into chunks. The meta_info is passed to each DataProto after split.
-
-        Args:
-            chunks (int): the number of chunks to split on dim=0
-
-        Returns:
-            List[DataProto]: a list of DataProto after splitting
-        """
-        assert len(
-            self) % chunks == 0, f'only support equal chunk. Got size of DataProto {len(self)} and chunk {chunks}.'
-
-        if self.batch is not None:
-            batch_lst = self.batch.chunk(chunks=chunks, dim=0)
-        else:
-            batch_lst = [None for _ in range(chunks)]
-
-        non_tensor_batch_lst = [{} for _ in range(chunks)]
-        for key, val in self.non_tensor_batch.items():
-            assert isinstance(val, np.ndarray)
-            non_tensor_lst = np.array_split(val, chunks)
-            assert len(non_tensor_lst) == chunks
-            for i in range(chunks):
-                non_tensor_batch_lst[i][key] = non_tensor_lst[i]
-
-        output = []
-        for i in range(chunks):
-            output.append(
-                DataProto(batch=batch_lst[i], non_tensor_batch=non_tensor_batch_lst[i], meta_info=self.meta_info))
-
-        return output
-
     @staticmethod
     def concat(data: List['DataProto']) -> 'DataProto':
         """Concat a list of DataProto. The batch is concatenated among dim=0.
@@ -757,18 +741,16 @@ class DataProtoFuture:
         return output
 
 
-from verl.utils.torch_functional import allgather_dict_tensors
-import torch.distributed
-
-
 def all_gather_data_proto(data: DataProto, process_group):
     # Note that this is an inplace operator just like torch.distributed.all_gather
     group_size = torch.distributed.get_world_size(group=process_group)
+
     assert isinstance(data, DataProto)
     prev_device = data.batch.device
     data.batch = data.batch.cuda(device=torch.cuda.current_device())
     data.batch = allgather_dict_tensors(data.batch.contiguous(), size=group_size, group=process_group, dim=0)
     data.batch = data.batch.to(prev_device)
+    
     # all gather non_tensor_batch
     all_non_tensor_batch = [None for _ in range(group_size)]
     torch.distributed.all_gather_object(all_non_tensor_batch, data.non_tensor_batch, group=process_group)
