@@ -88,6 +88,7 @@ class FSDPSFTTrainer(object):
             print(f'Using sequence parallel size: {self.config.ulysses_sequence_parallel_size}')
             print(f'Using remove padding: {self.use_remove_padding}')
 
+        # build dataloader
         self._build_dataloader()
         # build model
         self._build_model_optimizer()
