@@ -73,8 +73,7 @@ class FSDPSFTTrainer(object):
         self.sharding_manager = FSDPUlyssesShardingManager(self.ulysses_device_mesh)
         
         # build tokenizer first
-        local_model_path = self.config.model.partial_pretrain
-        self.tokenizer: AutoTokenizer = hf_tokenizer(local_model_path, trust_remote_code=self.config.model.trust_remote_code)
+        self.tokenizer: AutoTokenizer = hf_tokenizer(self.config.model.partial_pretrain, trust_remote_code=self.config.model.trust_remote_code)
         if self.config.data.chat_template is not None:
             raise ValueError('Apply Chat template from config is not supported yet.')
 
@@ -175,7 +174,6 @@ class FSDPSFTTrainer(object):
         # TODO (zhangchi.usc1992):
         # 1. support pretrain from random weights
         # 2. support init directly from sharded weights
-        local_model_path = copy_to_local(src=self.config.model.partial_pretrain, verbose=True)
 
         if self.config.model.get('external_lib', None) is not None:
             # This is used to import external_lib into the huggingface systems
@@ -186,7 +184,7 @@ class FSDPSFTTrainer(object):
 
         trust_remote_code = self.config.model.trust_remote_code
         # load config first
-        config = AutoConfig.from_pretrained(local_model_path, trust_remote_code=trust_remote_code)
+        config = AutoConfig.from_pretrained(self.config.model.partial_pretrain, trust_remote_code=trust_remote_code)
         if self.config.ulysses_sequence_parallel_size > 1:
             assert self.use_remove_padding, "Sequence parallel is only supported when remove_padding is enabled"
 
@@ -195,7 +193,7 @@ class FSDPSFTTrainer(object):
                                                        mesh=self.device_mesh)
 
         with init_context():
-            self.model: PreTrainedModel = AutoModelForCausalLM.from_pretrained(local_model_path,
+            self.model: PreTrainedModel = AutoModelForCausalLM.from_pretrained(self.config.model.partial_pretrain,
                                                                                config=config,
                                                                                torch_dtype=torch.float32,
                                                                                attn_implementation='flash_attention_2',
