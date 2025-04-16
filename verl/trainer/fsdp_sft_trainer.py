@@ -184,7 +184,10 @@ class FSDPSFTTrainer(object):
 
         trust_remote_code = self.config.model.trust_remote_code
         # load config first
-        config = AutoConfig.from_pretrained(self.config.model.partial_pretrain, trust_remote_code=trust_remote_code)
+        config = AutoConfig.from_pretrained(
+            self.config.model.partial_pretrain,
+            trust_remote_code=trust_remote_code
+        )
         if self.config.ulysses_sequence_parallel_size > 1:
             assert self.use_remove_padding, "Sequence parallel is only supported when remove_padding is enabled"
 
@@ -193,11 +196,13 @@ class FSDPSFTTrainer(object):
                                                        mesh=self.device_mesh)
 
         with init_context():
-            self.model: PreTrainedModel = AutoModelForCausalLM.from_pretrained(self.config.model.partial_pretrain,
-                                                                               config=config,
-                                                                               torch_dtype=torch.float32,
-                                                                               attn_implementation='flash_attention_2',
-                                                                               trust_remote_code=trust_remote_code)
+            self.model: PreTrainedModel = AutoModelForCausalLM.from_pretrained(
+                self.config.model.partial_pretrain,
+                config=config,
+                torch_dtype=torch.float32,
+                attn_implementation='flash_attention_2',
+                trust_remote_code=trust_remote_code
+            )
 
             if self.use_remove_padding or self.config.ulysses_sequence_parallel_size > 1:
                 from verl.models.transformers.monkey_patch import apply_monkey_patch
