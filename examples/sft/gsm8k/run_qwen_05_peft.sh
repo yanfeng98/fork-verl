@@ -34,6 +34,3 @@ torchrun --standalone --nnodes=1 --nproc_per_node=$nproc_per_node \
     model.lora_rank=8\
     model.lora_alpha=16 \
     model.target_modules=all-linear
-
-    # Or you can do this:
-    # model.target_modules=[q_proj,v_proj] \

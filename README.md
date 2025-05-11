@@ -38,6 +38,12 @@ pip install -e . -i https://pypi.tuna.tsinghua.edu.cn/simple
 python examples/data_preprocess/gsm8k.py --local_dir ./data/gsm8k --max_samples 36 --val_size 0.1
 ```
 
+## SFT your Model
+
+```bash
+bash examples/sft/gsm8k/run_qwen_05_peft.sh 1 saves/sft/qwen_05_peft
+```
+
 ## Code formatting
 
 ```bash

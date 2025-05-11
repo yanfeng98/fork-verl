@@ -17,8 +17,8 @@ class FSDPUlyssesShardingManager(BaseShardingManager):
 
     def __init__(self, device_mesh: DeviceMesh):
         super().__init__()
-        self.device_mesh = device_mesh
-        self.seed_offset = 12345
+        self.device_mesh: DeviceMesh = device_mesh
+        self.seed_offset: int = 12345
 
     def __enter__(self):
         if self.device_mesh is not None:

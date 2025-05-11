@@ -30,7 +30,6 @@ from verl.utils.torch_functional import get_cosine_schedule_with_warmup
 from verl.utils.fsdp_utils import get_fsdp_wrap_policy, init_fn, get_init_weight_context_manager
 from verl.utils.dataset import SFTDataset
 from verl.utils.dataset.multiturn_sft_dataset import MultiTurnSFTDataset
-from verl.utils.fs import copy_to_local
 from verl.utils.tracking import Tracking
 from verl.utils.ulysses import get_ulysses_sequence_parallel_world_size, ulysses_pad_and_slice_inputs, gather_outpus_and_unpad
 from verl.workers.sharding_manager import FSDPUlyssesShardingManager
@@ -65,9 +64,9 @@ class FSDPSFTTrainer(object):
 
     def __init__(self, config, device_mesh: DeviceMesh, ulysses_device_mesh: DeviceMesh):
         self.config = config
-        self.device_mesh = device_mesh
-        self.ulysses_device_mesh = ulysses_device_mesh
-        self.sharding_manager = FSDPUlyssesShardingManager(self.ulysses_device_mesh)
+        self.device_mesh: DeviceMesh = device_mesh
+        self.ulysses_device_mesh: DeviceMesh = ulysses_device_mesh
+        self.sharding_manager: FSDPUlyssesShardingManager = FSDPUlyssesShardingManager(self.ulysses_device_mesh)
 
         # build tokenizer first
         self.tokenizer: AutoTokenizer = hf_tokenizer(self.config.model.partial_pretrain,
