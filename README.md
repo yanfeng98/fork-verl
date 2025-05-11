@@ -35,7 +35,7 @@ pip install -e . -i https://pypi.tuna.tsinghua.edu.cn/simple
 ## Code formatting
 
 ```bash
-pip3 install yapf --upgrade
+pip install --upgrade yapf
 ```
 Then, make sure you are at top level of verl repo and run
 ```bash

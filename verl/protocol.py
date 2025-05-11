@@ -191,7 +191,8 @@ class DataProto:
                 assert isinstance(
                     val, np.ndarray
                 ), f'data in the non_tensor_batch must be a numpy.array with dtype=object, but for {key=}, got {type(val)=}'
-                assert val.shape[0] == batch_size, f'key {key} length {len(val)} is not equal to batch size {batch_size}'
+                assert val.shape[
+                    0] == batch_size, f'key {key} length {len(val)} is not equal to batch size {batch_size}'
 
     def chunk(self, chunks: int) -> List['DataProto']:
         """Split the batch among dim=0 into chunks. The meta_info is passed to each DataProto after split.
@@ -750,7 +751,7 @@ def all_gather_data_proto(data: DataProto, process_group):
     data.batch = data.batch.cuda(device=torch.cuda.current_device())
     data.batch = allgather_dict_tensors(data.batch.contiguous(), size=group_size, group=process_group, dim=0)
     data.batch = data.batch.to(prev_device)
-    
+
     # all gather non_tensor_batch
     all_non_tensor_batch = [None for _ in range(group_size)]
     torch.distributed.all_gather_object(all_non_tensor_batch, data.non_tensor_batch, group=process_group)

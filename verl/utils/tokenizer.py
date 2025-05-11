@@ -4,6 +4,7 @@ from transformers import AutoTokenizer
 
 __all__ = ['hf_tokenizer', 'hf_processor']
 
+
 def hf_tokenizer(name_or_path, correct_pad_token=True, **kwargs):
     """Create a huggingface pretrained tokenizer which correctness handles eos and pad tokens.
 

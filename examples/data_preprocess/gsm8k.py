@@ -69,7 +69,7 @@ if __name__ == '__main__':
 
     local_dir: str = args.local_dir
     max_samples: int = args.max_samples
-    val_size: float|int = args.val_size
+    val_size: float | int = args.val_size
 
     if max_samples is not None:
         max_samples = min(max_samples, len(train_dataset))

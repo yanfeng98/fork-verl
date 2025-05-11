@@ -20,6 +20,7 @@ def get_ulysses_sequence_parallel_group() -> Optional[dist.ProcessGroup]:
     global _ULYSSES_SEQUENCE_PARALLEL_GROUP
     return _ULYSSES_SEQUENCE_PARALLEL_GROUP
 
+
 def set_ulysses_sequence_parallel_group(group: dist.ProcessGroup):
     """
     Set ulysses sequence parallel process group.

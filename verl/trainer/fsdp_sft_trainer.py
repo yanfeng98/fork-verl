@@ -35,11 +35,8 @@ from verl.utils.tracking import Tracking
 from verl.utils.ulysses import get_ulysses_sequence_parallel_world_size, ulysses_pad_and_slice_inputs, gather_outpus_and_unpad
 from verl.workers.sharding_manager import FSDPUlyssesShardingManager
 
-
 import verl.utils.hdfs_io as hdfs_io
 from verl.utils.debug import log_gpu_memory_usage
-
-
 
 logger = logging.getLogger(__file__)
 logger.setLevel(os.getenv('VERL_SFT_LOGGING_LEVEL', 'WARN'))
@@ -71,9 +68,10 @@ class FSDPSFTTrainer(object):
         self.device_mesh = device_mesh
         self.ulysses_device_mesh = ulysses_device_mesh
         self.sharding_manager = FSDPUlyssesShardingManager(self.ulysses_device_mesh)
-        
+
         # build tokenizer first
-        self.tokenizer: AutoTokenizer = hf_tokenizer(self.config.model.partial_pretrain, trust_remote_code=self.config.model.trust_remote_code)
+        self.tokenizer: AutoTokenizer = hf_tokenizer(self.config.model.partial_pretrain,
+                                                     trust_remote_code=self.config.model.trust_remote_code)
         if self.config.data.chat_template is not None:
             raise ValueError('Apply Chat template from config is not supported yet.')
 
@@ -184,10 +182,7 @@ class FSDPSFTTrainer(object):
 
         trust_remote_code = self.config.model.trust_remote_code
         # load config first
-        config = AutoConfig.from_pretrained(
-            self.config.model.partial_pretrain,
-            trust_remote_code=trust_remote_code
-        )
+        config = AutoConfig.from_pretrained(self.config.model.partial_pretrain, trust_remote_code=trust_remote_code)
         if self.config.ulysses_sequence_parallel_size > 1:
             assert self.use_remove_padding, "Sequence parallel is only supported when remove_padding is enabled"
 
@@ -196,13 +191,11 @@ class FSDPSFTTrainer(object):
                                                        mesh=self.device_mesh)
 
         with init_context():
-            self.model: PreTrainedModel = AutoModelForCausalLM.from_pretrained(
-                self.config.model.partial_pretrain,
-                config=config,
-                torch_dtype=torch.float32,
-                attn_implementation='flash_attention_2',
-                trust_remote_code=trust_remote_code
-            )
+            self.model: PreTrainedModel = AutoModelForCausalLM.from_pretrained(self.config.model.partial_pretrain,
+                                                                               config=config,
+                                                                               torch_dtype=torch.float32,
+                                                                               attn_implementation='flash_attention_2',
+                                                                               trust_remote_code=trust_remote_code)
 
             if self.use_remove_padding or self.config.ulysses_sequence_parallel_size > 1:
                 from verl.models.transformers.monkey_patch import apply_monkey_patch
@@ -512,26 +505,13 @@ class FSDPSFTTrainer(object):
 def main(config):
     local_rank, rank, world_size = initialize_global_process_group()
 
-    device_mesh: DeviceMesh = init_device_mesh(
-        device_type='cuda',
-        mesh_shape=(world_size,),
-        mesh_dim_names=('fsdp',)
-    )
+    device_mesh: DeviceMesh = init_device_mesh(device_type='cuda', mesh_shape=(world_size,), mesh_dim_names=('fsdp',))
     dp_size = world_size // config.ulysses_sequence_parallel_size
-    ulysses_device_mesh: DeviceMesh = init_device_mesh(
-        device_type='cuda',
-        mesh_shape=(
-            dp_size,
-            config.ulysses_sequence_parallel_size
-        ),
-        mesh_dim_names=('dp', 'sp')
-    )
+    ulysses_device_mesh: DeviceMesh = init_device_mesh(device_type='cuda',
+                                                       mesh_shape=(dp_size, config.ulysses_sequence_parallel_size),
+                                                       mesh_dim_names=('dp', 'sp'))
 
-    trainer = FSDPSFTTrainer(
-        config=config,
-        device_mesh=device_mesh,
-        ulysses_device_mesh=ulysses_device_mesh
-    )
+    trainer = FSDPSFTTrainer(config=config, device_mesh=device_mesh, ulysses_device_mesh=ulysses_device_mesh)
     trainer.fit()
 
 
