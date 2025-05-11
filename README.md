@@ -32,12 +32,20 @@ pip install flash_attn-2.7.4.post1+cu12torch2.6cxx11abiFALSE-cp312-cp312-linux_x
 pip install -e . -i https://pypi.tuna.tsinghua.edu.cn/simple
 ```
 
+## Prepare the dataset
+
+```bash
+python examples/data_preprocess/gsm8k.py --local_dir ./data/gsm8k --max_samples 36 --val_size 0.1
+```
+
 ## Code formatting
 
 ```bash
 pip install --upgrade yapf
 ```
+
 Then, make sure you are at top level of verl repo and run
+
 ```bash
 bash scripts/format.sh
 ```

@@ -6,10 +6,12 @@ import re
 import os
 import datasets
 import argparse
+from typing import Any
+from datasets import Dataset, DatasetDict
 
 
 def extract_solution(solution_str):
-    solution = re.search("#### (\\-?[0-9\\.\\,]+)", solution_str)
+    solution = re.search(r"#### (-?[0-9\.,]+)", solution_str)
     assert solution is not None
     final_solution = solution.group(0)
     final_solution = final_solution.split('#### ')[1].replace(',', '')
@@ -20,29 +22,29 @@ def extract_solution(solution_str):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('--local_dir', default='~/data/gsm8k')
+    parser.add_argument('--local_dir', default='./data/gsm8k')
     parser.add_argument('--max_samples', type=int, default=None)
     parser.add_argument('--val_size', type=float, default=0.1)
     args = parser.parse_args()
 
-    data_source = 'openai/gsm8k'
-    dataset = datasets.load_dataset(data_source, 'main')
+    data_source: str = 'openai/gsm8k'
+    dataset: DatasetDict = datasets.load_dataset(data_source, 'main')
 
-    train_dataset = dataset['train']
-    test_dataset = dataset['test']
+    train_dataset: Dataset = dataset['train']
+    test_dataset: Dataset = dataset['test']
 
-    instruction_following = "Let's think step by step and output the final answer after \"####\"."
+    instruction_following: str = "Let's think step by step and output the final answer after \"####\"."
 
     # add a row to each data item that represents a unique id
     def make_map_fn(split):
 
         def process_fn(example, idx):
-            question_raw = example.pop('question')
-            question = question_raw + ' ' + instruction_following
-            answer_raw = example.pop('answer')
-            solution = extract_solution(answer_raw)
+            question_raw: str = example.pop('question')
+            question: str = question_raw + ' ' + instruction_following
+            answer_raw: str = example.pop('answer')
+            solution: str = extract_solution(answer_raw)
 
-            data = {
+            data: dict[str, Any] = {
                 "data_source": data_source,
                 "ability": "math",
                 "prompt": [{
@@ -72,11 +74,11 @@ if __name__ == '__main__':
     val_size: float | int = args.val_size
 
     if max_samples is not None:
-        max_samples = min(max_samples, len(train_dataset))
-        dataset = train_dataset.select(range(max_samples))
+        max_samples: int = min(max_samples, len(train_dataset))
+        dataset: Dataset = train_dataset.select(range(max_samples))
 
-        val_size = int(val_size) if val_size > 1 else val_size
-        dataset = dataset.train_test_split(test_size=val_size, seed=42)
+        val_size: int | float = int(val_size) if val_size > 1 else val_size
+        dataset: DatasetDict = dataset.train_test_split(test_size=val_size, seed=42)
         train_dataset = dataset["train"]
         test_dataset = dataset["test"]
 
