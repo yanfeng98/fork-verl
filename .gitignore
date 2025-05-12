@@ -130,3 +130,4 @@ outputs
 # luyanfeng
 flash_attn*
 saves
+test.py

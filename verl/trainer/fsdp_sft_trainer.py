@@ -94,7 +94,7 @@ class FSDPSFTTrainer(object):
             print(self.config)
 
     def _normalize_config_bsz(self):
-        dp_size = self.device_mesh.size(0) if not self.ulysses_device_mesh else self.ulysses_device_mesh.size(0)
+        dp_size: int = self.device_mesh.size(0) if not self.ulysses_device_mesh else self.ulysses_device_mesh.size(0)
         if self.device_mesh.get_rank() == 0:
             print(f'Normalize batch size by dp {dp_size}')
 
