@@ -9,16 +9,11 @@ Post-train a LLM using GSM8K dataset.
 Introduction
 ------------
 
-.. _hf_dataset_gsm8k: https://huggingface.co/datasets/gsm8k
-
-In this example, we train an LLM to tackle the `GSM8k <hf_dataset_gsm8k>`_ task with function-based rewards. [1]_
+In this example, we train an LLM to tackle the GSM8k task with function-based rewards.
 
 Prerequisite:
 
-- the latest version of ``verl`` and its dependencies installed following the installation guide. Using the docker image is recommended.
-
 - a GPU with at least 24 GB HBM
-
 
 Dataset Introduction
 --------------------
@@ -46,7 +41,7 @@ We preprocess the dataset in parquet format so that (1) it contains necessary fi
 
 .. code-block:: bash
 
-   python3 examples/data_preprocess/gsm8k.py --local_save_dir ~/data/gsm8k
+   python examples/data_preprocess/gsm8k.py --local_save_dir ~/data/gsm8k
 
 Step 2: Download a model for post-training
 -------------------------------------------
