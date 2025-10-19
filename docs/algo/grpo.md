@@ -1,7 +1,5 @@
 # Group Relative Policy Optimization (GRPO)
 
-Last updated: 05/31/2025.
-
 In reinforcement learning, classic algorithms like PPO rely on a "critic" model to estimate the value of actions, guiding the learning process. However, training this critic model can be resource-intensive. 
 
 GRPO simplifies this process by eliminating the need for a separate critic model. Instead, it operates as follows:
@@ -24,7 +22,7 @@ Note that all configs containing `micro_batch_size` are used to configure the ma
 
 Despite that many configurations start with the `ppo_` prefix, they work across different RL algorithms in verl, as the GRPO training loop is similar to that of PPO (without critic).
 
-![image](https://github.com/user-attachments/assets/16aebad1-0da6-4eb3-806d-54a74e712c2d)
+![image](./assets/grpo.png)
 
 - `actor_rollout.ref.rollout.n`: For each prompt, sample n times. Default to 1. For GRPO, please set it to a value larger than 1 for group sampling.
 
@@ -66,6 +64,7 @@ Qwen2.5 GRPO training log and commands: [link](https://github.com/eric-haibin-li
 
 ```bash
 bash examples/grpo_trainer/run_qwen3-8b.sh
+bash examples/grpo_trainer/run_qwen2_5-3b_gsm8k_grpo_lora.sh
 ```
 
 For more reference performance, please see https://verl.readthedocs.io/en/latest/algo/baseline.html

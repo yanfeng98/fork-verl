@@ -53,7 +53,7 @@ verl is fast with:
 - [Quickstart](https://verl.readthedocs.io/en/latest/start/quickstart.html)
 - [Programming Guide](https://verl.readthedocs.io/en/latest/hybrid_flow.html) & [Tech Talk](https://hcqnc.xetlk.com/sl/3vACOK) (in Chinese)
 - [PPO in verl](https://verl.readthedocs.io/en/latest/algo/ppo.html)
-- [GRPO in verl](https://verl.readthedocs.io/en/latest/algo/grpo.html)
+- [GRPO in verl](./docs/algo/grpo.md)
 
 **Running a PPO example step-by-step:**
 

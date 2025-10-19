@@ -44,8 +44,3 @@ python3 -m verl.trainer.main_ppo \
     trainer.save_freq=4 \
     trainer.test_freq=1 \
     trainer.total_epochs=3 $@
-
-    # actor_rollout_ref.actor.ppo_mini_batch_size=256 \
-    # data.train_batch_size=1024 \
-    # trainer.n_gpus_per_node=8 \
-    # actor_rollout_ref.model.use_shm=True \

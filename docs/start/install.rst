@@ -116,6 +116,7 @@ own post-training jobs.
 .. code:: bash
 
    pip install --no-deps -e .
+   pip uninstall grpcio
 
 
 Post-installation
