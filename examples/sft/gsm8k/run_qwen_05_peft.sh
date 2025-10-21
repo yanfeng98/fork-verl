@@ -1,4 +1,4 @@
-# Tested with 2 & 4 GPUs
+# bash examples/sft/gsm8k/run_qwen_05_peft.sh 1 saves/sft/qwen_05_peft
 
 set -x
 
@@ -22,6 +22,7 @@ torchrun --standalone --nnodes=1 --nproc_per_node=$nproc_per_node \
     optim.lr=1e-4 \
     data.prompt_dict_keys=['question'] \
     +data.response_dict_keys=['answer'] \
+    data.train_batch_size=8 \
     data.micro_batch_size_per_gpu=4 \
     model.partial_pretrain=Qwen/Qwen2.5-0.5B-Instruct \
     trainer.default_local_dir=$save_path \
@@ -29,9 +30,6 @@ torchrun --standalone --nnodes=1 --nproc_per_node=$nproc_per_node \
     trainer.experiment_name=gsm8k-sft-qwen-2.5-0.5b-instruct \
     trainer.logger=console \
     trainer.total_epochs=1 $@ \
-    model.lora_rank=32\
+    model.lora_rank=8\
     model.lora_alpha=16 \
     model.target_modules=all-linear
-
-    # Or you can do this:
-    # model.target_modules=[q_proj,v_proj] \

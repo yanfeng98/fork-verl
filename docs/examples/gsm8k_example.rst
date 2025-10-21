@@ -1,8 +1,6 @@
 GSM8K Example
 =============
 
-Last updated: 03/25/2025.
-
 Introduction
 ------------
 
@@ -10,7 +8,7 @@ In this example, we train an LLM to tackle the GSM8k task.
 
 Paper: https://arxiv.org/pdf/2110.14168
 
-Dataset: https://huggingface.co/datasets/gsm8k
+Dataset: https://huggingface.co/datasets/openai/gsm8k
 
 Note that the original paper mainly focuses on training a verifier (a
 reward model) to solve math problems via Best-of-N sampling. In this
@@ -46,7 +44,7 @@ Step 1: Prepare dataset
 .. code:: bash
 
    cd examples/data_preprocess
-   python3 gsm8k.py --local_save_dir ~/data/gsm8k
+   python gsm8k.py --local_save_dir ~/data/gsm8k
 
 Step 2: Download Model
 ----------------------
@@ -61,7 +59,7 @@ There're three ways to prepare the model checkpoints for post-training:
    # or
    modelscope download --model deepseek-ai/deepseek-math-7b-instruct --local_dir ~/models/deepseek-math-7b-instruct
 
-- Already store your store model in the local directory or HDFS path.
+- Already store your model in the local directory.
 - Also, you can directly use the model name in huggingface (e.g.,
   deepseek-ai/deepseek-math-7b-instruct) in
   ``actor_rollout_ref.model.path`` and ``critic.model.path`` field in
@@ -75,11 +73,9 @@ model.
 ---------------------------------
 
 We provide a SFT Trainer using PyTorch FSDP in
-`fsdp_sft_trainer.py <https://github.com/volcengine/verl/blob/main/verl/trainer/fsdp_sft_trainer.py>`_. 
-Users can customize their own SFT
-script using our FSDP SFT Trainer.
+`fsdp_sft_trainer.py <../../verl/trainer/fsdp_sft_trainer.py>`_.
 
-We also provide various training scripts for SFT on GSM8K dataset in `gsm8k sft directory <https://github.com/volcengine/verl/blob/main/examples/sft/gsm8k/>`_.
+We also provide various training scripts for SFT on GSM8K dataset in `gsm8k sft directory <../../examples/sft/gsm8k/>`_.
 
 .. code:: shell
 
