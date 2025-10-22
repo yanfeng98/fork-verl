@@ -1,29 +1,14 @@
-# Copyright 2024 Bytedance Ltd. and/or its affiliates
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
-
-# setup.py is the fallback installation script when pyproject.toml does not work
 import os
 from pathlib import Path
 
 from setuptools import find_packages, setup
 
-version_folder = os.path.dirname(os.path.join(os.path.abspath(__file__)))
+version_folder: str = os.path.dirname(os.path.join(os.path.abspath(__file__)))
 
 with open(os.path.join(version_folder, "verl/version/version")) as f:
-    __version__ = f.read().strip()
+    __version__: str = f.read().strip()
 
-install_requires = [
+install_requires: list[str] = [
     "accelerate",
     "codetiming",
     "datasets",
@@ -44,21 +29,21 @@ install_requires = [
     "tensorboard",
 ]
 
-TEST_REQUIRES = ["pytest", "pre-commit", "py-spy", "pytest-asyncio"]
-PRIME_REQUIRES = ["pyext"]
-GEO_REQUIRES = ["mathruler", "torchvision", "qwen_vl_utils"]
-GPU_REQUIRES = ["liger-kernel", "flash-attn"]
-MATH_REQUIRES = ["math-verify"]  # Add math-verify as an optional dependency
-VLLM_REQUIRES = ["tensordict>=0.8.0,<=0.10.0,!=0.9.0", "vllm>=0.7.3,<=0.9.1"]
-SGLANG_REQUIRES = [
+TEST_REQUIRES: list[str] = ["pytest", "pre-commit", "py-spy", "pytest-asyncio"]
+PRIME_REQUIRES: list[str] = ["pyext"]
+GEO_REQUIRES: list[str] = ["mathruler", "torchvision", "qwen_vl_utils"]
+GPU_REQUIRES: list[str] = ["liger-kernel", "flash-attn"]
+MATH_REQUIRES: list[str] = ["math-verify"]
+VLLM_REQUIRES: list[str] = ["tensordict>=0.8.0,<=0.10.0,!=0.9.0", "vllm>=0.7.3,<=0.9.1"]
+SGLANG_REQUIRES: list[str] = [
     "tensordict>=0.8.0,<=0.10.0,!=0.9.0",
     "sglang[srt,openai]==0.5.2",
     "torch==2.8.0",
 ]
-TRL_REQUIRES = ["trl<=0.9.6"]
-MCORE_REQUIRES = ["mbridge"]
+TRL_REQUIRES: list[str] = ["trl<=0.9.6"]
+MCORE_REQUIRES: list[str] = ["mbridge"]
 
-extras_require = {
+extras_require: dict[str, list[str]] = {
     "test": TEST_REQUIRES,
     "prime": PRIME_REQUIRES,
     "geo": GEO_REQUIRES,
@@ -70,9 +55,8 @@ extras_require = {
     "mcore": MCORE_REQUIRES,
 }
 
-
-this_directory = Path(__file__).parent
-long_description = (this_directory / "README.md").read_text()
+this_directory: Path = Path(__file__).parent
+long_description: str = (this_directory / "README.md").read_text()
 
 setup(
     name="verl",

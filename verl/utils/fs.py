@@ -32,14 +32,6 @@ _HDFS_PREFIX = "hdfs://"
 
 
 def is_non_local(path):
-    """Check if a path is a non-local (HDFS) path.
-
-    Args:
-        path (str): The path to check.
-
-    Returns:
-        bool: True if the path is an HDFS path, False otherwise.
-    """
     return path.startswith(_HDFS_PREFIX)
 
 
@@ -208,8 +200,7 @@ def copy_to_local(
     Returns:
         str: Local filesystem path to copied resource
     """
-    # Save to a local path for persistence.
-    local_path = copy_local_path_from_hdfs(src, cache_dir, filelock, verbose, always_recopy)
+    local_path = src
 
     if use_shm and isinstance(local_path, str) and not os.path.exists(local_path):
         try:
@@ -232,18 +223,14 @@ def copy_to_local(
 def copy_local_path_from_hdfs(
     src: str, cache_dir=None, filelock=".file.lock", verbose=False, always_recopy=False
 ) -> str:
-    """Deprecated. Please use copy_to_local instead."""
     from filelock import FileLock
 
     assert src[-1] != "/", f"Make sure the last char in src is not / because it will cause error. Got {src}"
 
     if is_non_local(src):
-        # download from hdfs to local
         if cache_dir is None:
-            # get a temp folder
             cache_dir = tempfile.gettempdir()
         os.makedirs(cache_dir, exist_ok=True)
-        assert os.path.exists(cache_dir)
         local_path = get_local_temp_path(src, cache_dir)
         # get a specific lock
         filelock = md5_encode(src) + ".lock"

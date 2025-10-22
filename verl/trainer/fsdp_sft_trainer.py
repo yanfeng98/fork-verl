@@ -1,16 +1,3 @@
-# Copyright 2024 Bytedance Ltd. and/or its affiliates
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
 """
 A lightweight one-file FSDP SFT Trainer
 TODO(zhangchi.usc1992)
@@ -783,19 +770,22 @@ class FSDPSFTTrainer:
                         print(f"Final validation metrics: {last_valid_metric}")
                     return
 
+@hydra.main(config_path="config", config_name="sft_trainer", version_base=None)
+def main(config: DictConfig) -> None:
+    run_sft(config)
 
-def run_sft(config):
-    device_name = get_device_name()
+def run_sft(config: DictConfig):
+    device_name: str = get_device_name()
     local_rank, rank, world_size = initialize_global_process_group()
 
-    device_mesh = init_device_mesh(device_type=device_name, mesh_shape=(world_size,), mesh_dim_names=("fsdp",))
-    dp_size = world_size // config.ulysses_sequence_parallel_size
-    ulysses_device_mesh = init_device_mesh(
+    device_mesh: DeviceMesh = init_device_mesh(device_type=device_name, mesh_shape=(world_size,), mesh_dim_names=("fsdp",))
+    dp_size: int = world_size // config.ulysses_sequence_parallel_size
+    ulysses_device_mesh: DeviceMesh = init_device_mesh(
         device_type=device_name,
         mesh_shape=(dp_size, config.ulysses_sequence_parallel_size),
         mesh_dim_names=("dp", "sp"),
     )
-    # build tokenizer and datasets first
+
     from verl.utils import hf_tokenizer
 
     local_model_path = copy_to_local(src=config.model.partial_pretrain, verbose=True)
@@ -815,12 +805,6 @@ def run_sft(config):
     trainer.fit()
 
     destroy_global_process_group()
-
-
-@hydra.main(config_path="config", config_name="sft_trainer", version_base=None)
-def main(config):
-    run_sft(config)
-
 
 def create_sft_dataset(data_paths, data_config, tokenizer):
     """Create a dataset."""
