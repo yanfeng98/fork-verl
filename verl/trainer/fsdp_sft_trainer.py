@@ -185,7 +185,7 @@ class FSDPSFTTrainer:
         # TODO (zhangchi.usc1992):
         # 1. support pretrain from random weights
         # 2. support init directly from sharded weights
-        local_model_path = copy_to_local(src=self.config.model.partial_pretrain, verbose=True)
+        local_model_path = copy_to_local(src=self.config.model.partial_pretrain)
 
         if self.config.model.get("external_lib", None) is not None:
             # This is used to import external_lib into the huggingface systems
@@ -788,7 +788,7 @@ def run_sft(config: DictConfig):
 
     from verl.utils import hf_tokenizer
 
-    local_model_path = copy_to_local(src=config.model.partial_pretrain, verbose=True)
+    local_model_path = copy_to_local(src=config.model.partial_pretrain)
     tokenizer = hf_tokenizer(local_model_path, trust_remote_code=config.model.trust_remote_code)
     train_dataset = create_sft_dataset(config.data.train_files, config.data, tokenizer)
     val_dataset = create_sft_dataset(config.data.val_files, config.data, tokenizer)

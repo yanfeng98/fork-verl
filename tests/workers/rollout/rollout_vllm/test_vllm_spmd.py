@@ -79,7 +79,7 @@ def test_vllm_spmd():
     hdfs_path = "Qwen/Qwen2.5-1.5B-Instruct"
     from verl.utils.fs import copy_to_local
 
-    local_model_path = copy_to_local(src=hdfs_path, cache_dir=local_cache_path)
+    local_model_path = copy_to_local(src=hdfs_path)
     tokenizer = AutoTokenizer.from_pretrained(local_model_path, padding_side="left", trust_remote_code=True)
 
     actor_model = AutoModelForCausalLM.from_pretrained(local_model_path, trust_remote_code=True)

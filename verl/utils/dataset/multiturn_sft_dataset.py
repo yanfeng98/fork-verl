@@ -28,7 +28,7 @@ from transformers import PreTrainedTokenizer
 
 from verl.utils import hf_tokenizer
 from verl.utils.dataset.dataset_utils import DatasetPadMode
-from verl.utils.fs import copy_local_path_from_hdfs
+from verl.utils.fs import copy_to_local
 
 
 def convert_nested_value_to_list_recursive(data_item):
@@ -80,7 +80,7 @@ class MultiTurnSFTDataset(Dataset):
 
     def _download(self):
         for i, parquet_file in enumerate(self.parquet_files):
-            self.parquet_files[i] = copy_local_path_from_hdfs(parquet_file, verbose=True)
+            self.parquet_files[i] = copy_to_local(parquet_file)
 
     def _read_files_and_process(self):
         def series_to_item(ls):

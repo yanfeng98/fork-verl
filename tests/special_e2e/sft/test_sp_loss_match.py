@@ -110,7 +110,7 @@ def create_trainer(config):
     from verl.utils import hf_tokenizer
     from verl.utils.fs import copy_to_local
 
-    local_model_path = copy_to_local(src=config.model.partial_pretrain, verbose=True)
+    local_model_path = copy_to_local(src=config.model.partial_pretrain)
     tokenizer = hf_tokenizer(local_model_path, trust_remote_code=config.model.trust_remote_code)
     train_dataset = create_sft_dataset(config.data.train_files, config.data, tokenizer)
     val_dataset = create_sft_dataset(config.data.val_files, config.data, tokenizer)

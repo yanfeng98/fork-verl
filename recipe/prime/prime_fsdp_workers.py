@@ -28,7 +28,7 @@ from verl.utils import hf_tokenizer
 from verl.utils.checkpoint.fsdp_checkpoint_manager import FSDPCheckpointManager
 from verl.utils.device import get_device_id, get_device_name, get_nccl_backend
 from verl.utils.flops_counter import FlopsCounter
-from verl.utils.fs import copy_local_path_from_hdfs
+from verl.utils.fs import copy_to_local
 from verl.utils.fsdp_utils import (
     get_fsdp_wrap_policy,
     get_init_weight_context_manager,
@@ -94,9 +94,9 @@ class PRIMERewardModelWorker(Worker):
         from verl.utils.model import print_model_size
         from verl.utils.torch_dtypes import PrecisionType
 
-        local_path = copy_local_path_from_hdfs(config.model.path)
+        local_path = copy_to_local(config.model.path)
 
-        tokenizer_path = copy_local_path_from_hdfs(config.model.tokenizer_path)
+        tokenizer_path = copy_to_local(config.model.tokenizer_path)
         self.tokenizer = hf_tokenizer(tokenizer_path, trust_remote_code=config.model.get("trust_remote_code", False))
 
         override_config = OmegaConf.to_container(OmegaConf.create(self.config.model.get("override_config", {})))
@@ -179,7 +179,7 @@ class PRIMERewardModelWorker(Worker):
             reward_model_config.classifier_dropout = 0.0
             reward_model_config.hidden_dropout = "0"
             ref_module = AutoModelForCausalLM.from_pretrained(
-                pretrained_model_name_or_path=copy_local_path_from_hdfs(config.model.ref_path),
+                pretrained_model_name_or_path=copy_to_local(config.model.ref_path),
                 torch_dtype=torch_dtype,
                 config=reward_model_config,
                 attn_implementation="flash_attention_2",

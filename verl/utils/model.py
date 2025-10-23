@@ -414,7 +414,7 @@ def _load_hf_model(config, model_config, is_value_model, local_cache_path):
 
         print(f"start download from {config.model.path}")
         local_model_path = copy_to_local(
-            src=config.model.path, cache_dir=local_cache_path, use_shm=config.model.get("use_shm", False)
+            src=config.model.path, use_shm=config.model.get("use_shm", False)
         )
         print("finish download")
     else:
@@ -458,7 +458,7 @@ def get_hf_model_path(config, local_cache_path="~/.cache/verl/rlhf"):
         from verl.utils.fs import copy_to_local
 
         local_model_path = copy_to_local(
-            src=config.model.path, cache_dir=local_cache_path, use_shm=config.model.get("use_shm", False)
+            src=config.model.path, use_shm=config.model.get("use_shm", False)
         )
     else:
         local_model_path = config.model.path

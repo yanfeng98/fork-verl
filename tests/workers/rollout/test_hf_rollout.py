@@ -108,7 +108,7 @@ def test_hf_rollout(n: int = 1, do_sample: bool = True, validate: bool = False):
     local_cache_path = "~/.cache/verl/rlhf"
     local_cache_path = os.path.expanduser(local_cache_path)
     hdfs_path = "Qwen/Qwen2-7B-Instruct"
-    local_model_path = copy_to_local(src=hdfs_path, cache_dir=local_cache_path)
+    local_model_path = copy_to_local(src=hdfs_path)
     tokenizer = AutoTokenizer.from_pretrained(local_model_path, padding_side="left", trust_remote_code=True)
     tokenizer.pad_token = tokenizer.eos_token
 

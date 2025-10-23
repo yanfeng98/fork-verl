@@ -65,7 +65,7 @@ def main_task(config, compute_score=None):
 
     from omegaconf import OmegaConf
 
-    from verl.utils.fs import copy_local_path_from_hdfs
+    from verl.utils.fs import copy_to_local
 
     pprint(OmegaConf.to_container(config, resolve=True))  # resolve=True will eval symbol values
     OmegaConf.resolve(config)
@@ -122,7 +122,7 @@ def main_task(config, compute_score=None):
     )
 
     # download the checkpoint from hdfs
-    local_path = copy_local_path_from_hdfs(config.actor_rollout_ref.model.path)
+    local_path = copy_to_local(config.actor_rollout_ref.model.path)
 
     # instantiate tokenizer
     from verl.utils import hf_tokenizer

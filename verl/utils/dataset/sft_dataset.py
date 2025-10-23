@@ -71,7 +71,7 @@ class SFTDataset(Dataset):
 
     def _download(self):
         for i, parquet_file in enumerate(self.parquet_files):
-            self.parquet_files[i] = copy_to_local(parquet_file, verbose=True, use_shm=self.use_shm)
+            self.parquet_files[i] = copy_to_local(parquet_file, use_shm=self.use_shm)
 
     def _read_files_and_tokenize(self):
         def series_to_item(ls):
