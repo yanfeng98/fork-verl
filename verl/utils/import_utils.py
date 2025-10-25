@@ -1,16 +1,3 @@
-# Copyright 2024 Bytedance Ltd. and/or its affiliates
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
 """
 Utilities to check if packages are available.
 We assume package availability won't change during runtime.
@@ -81,15 +68,14 @@ def import_external_libs(external_libs=None):
 
 
 def load_extern_type(file_path: Optional[str], type_name: Optional[str]) -> type:
-    """Load a external data type based on the file path and type name"""
     if not file_path:
         return None
 
     if file_path.startswith("pkg://"):
         # pkg://verl.utils.dataset.rl_dataset
         # pkg://verl/utils/dataset/rl_dataset
-        module_name = file_path[6:].replace("/", ".")
-        module = importlib.import_module(module_name)
+        module_name: str = file_path[6:].replace("/", ".")
+        module: importlib.ModuleType = importlib.import_module(module_name)
 
     else:
         # file://verl/utils/dataset/rl_dataset
@@ -102,7 +88,7 @@ def load_extern_type(file_path: Optional[str], type_name: Optional[str]) -> type
             raise FileNotFoundError(f"Custom type file '{file_path}' not found.")
 
         spec = importlib.util.spec_from_file_location("custom_module", file_path)
-        module = importlib.util.module_from_spec(spec)
+        module: importlib.ModuleType = importlib.util.module_from_spec(spec)
         try:
             spec.loader.exec_module(module)
         except Exception as e:

@@ -85,23 +85,22 @@ def verify_copy(src: str, dest: str) -> bool:
 def copy_to_local(
     src: str, use_shm: bool = False
 ) -> str:
-    local_path = src
 
-    if use_shm and isinstance(local_path, str) and not os.path.exists(local_path):
+    if use_shm and isinstance(src, str) and not os.path.exists(src):
         try:
             from huggingface_hub import snapshot_download
 
-            resolved = snapshot_download(local_path)
+            resolved = snapshot_download(src)
             if isinstance(resolved, str) and os.path.exists(resolved):
-                local_path = resolved
+                src = resolved
         except ImportError:
             pass
         except Exception as e:
             print(f"WARNING: Failed to download model from Hugging Face: {e}")
 
     if use_shm:
-        return copy_to_shm(local_path)
-    return local_path
+        return copy_to_shm(src)
+    return src
 
 def copy_to_shm(src: str) -> str:
     shm_model_root: str = "/dev/shm/verl-cache/"

@@ -28,7 +28,7 @@ from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
 from torch.utils.data import Dataset, DistributedSampler
 from torchdata.stateful_dataloader import StatefulDataLoader
 from tqdm import tqdm
-from transformers import AutoConfig, AutoModelForCausalLM, PreTrainedModel
+from transformers import AutoConfig, AutoModelForCausalLM, PreTrainedTokenizer, PreTrainedModel
 
 import verl.utils.hdfs_io as hdfs_io
 from verl.utils.attention_utils import index_first_axis, pad_input, rearrange, unpad_input
@@ -76,27 +76,25 @@ def extract_step(path):
 class FSDPSFTTrainer:
     def __init__(
         self,
-        config,
+        config: DictConfig,
         device_mesh: DeviceMesh,
         ulysses_device_mesh: DeviceMesh,
-        tokenizer,
+        tokenizer: PreTrainedTokenizer,
         train_dataset: Dataset,
         val_dataset: Dataset,
     ):
-        self.config = config
-        self.device_mesh = device_mesh
-        self.ulysses_device_mesh = ulysses_device_mesh
-        self.sharding_manager = FSDPUlyssesShardingManager(self.ulysses_device_mesh)
-        self.tokenizer = tokenizer
+        self.config: DictConfig = config
+        self.device_mesh: DeviceMesh = device_mesh
+        self.ulysses_device_mesh: DeviceMesh = ulysses_device_mesh
+        self.sharding_manager: FSDPUlyssesShardingManager = FSDPUlyssesShardingManager(self.ulysses_device_mesh)
+        self.tokenizer: PreTrainedTokenizer = tokenizer
         if self.config.data.chat_template is not None:
             raise ValueError("Apply Chat template from config is not supported yet.")
 
-        # normalize dp size
         self._normalize_config_bsz()
 
-        # Set sequence parallel size
         self.config.ulysses_sequence_parallel_size = getattr(self.config, "ulysses_sequence_parallel_size", 1)
-        self.use_remove_padding = getattr(self.config, "use_remove_padding", False)
+        self.use_remove_padding: bool = getattr(self.config, "use_remove_padding", False)
         if self.device_mesh.get_rank() == 0:
             print(f"Using sequence parallel size: {self.config.ulysses_sequence_parallel_size}")
             print(f"Using remove padding: {self.use_remove_padding}")
@@ -118,8 +116,8 @@ class FSDPSFTTrainer:
             print(self.config)
         self.device_name = self.config.trainer.device
 
-    def _normalize_config_bsz(self):
-        dp_size = self.device_mesh.size(0) if not self.ulysses_device_mesh else self.ulysses_device_mesh.size(0)
+    def _normalize_config_bsz(self) -> None:
+        dp_size: int = self.device_mesh.size(0) if not self.ulysses_device_mesh else self.ulysses_device_mesh.size(0)
         if self.device_mesh.get_rank() == 0:
             print(f"Normalize batch size by dp {dp_size}")
 
@@ -131,29 +129,27 @@ class FSDPSFTTrainer:
 
         assert self.config.data.train_batch_size % self.config.data.micro_batch_size_per_gpu == 0
 
-    def _build_dataloader(self, train_dataset, val_dataset):
-        # build dataset
-        config = self.config
+    def _build_dataloader(self, train_dataset: Dataset, val_dataset: Dataset):
+        config: DictConfig = self.config
         self.train_dataset, self.val_dataset = train_dataset, val_dataset
 
-        # build dataloader
-        # Use data parallel rank and size instead of global rank and world size
-
-        # If doing SP, we need to use the local rank and size
         if self.config.ulysses_sequence_parallel_size > 1:
-            rank = self.ulysses_device_mesh.get_local_rank("dp")
-            world_size = self.ulysses_device_mesh.size(0)
+            # 数据分布：
+            # - 不同DP组：处理不同的数据批次
+            # - 同一DP组内不同SP rank：处理同一批次数据的不同序列片段
+            # - 同一SP rank跨DP组：处理不同数据但相同的序列位置
+            rank: int = self.ulysses_device_mesh.get_local_rank("dp")
+            world_size: int = self.ulysses_device_mesh.size(0)
             if self.ulysses_device_mesh.get_rank() == 0:
                 print(f"Using SP rank {rank} and size {world_size} for data distribution")
                 print("Each SP rank gets different data, but the same data WITHIN the same rank")
         else:
-            rank = self.device_mesh.get_rank()
-            world_size = self.device_mesh.size()
+            rank: int = self.device_mesh.get_rank()
+            world_size: int = self.device_mesh.size()
         if self.device_mesh.get_rank() == 0:
             print(f"Using FSDP rank {rank} and size {world_size} for data distribution")
 
-        # Set pin_memory_device when pin_memory is enabled.
-        device_name = get_device_name()
+        device_name: str = get_device_name()
 
         self.train_sampler = DistributedSampler(
             self.train_dataset, shuffle=True, num_replicas=world_size, rank=rank, drop_last=True
@@ -788,12 +784,12 @@ def run_sft(config: DictConfig):
 
     from verl.utils import hf_tokenizer
 
-    local_model_path = copy_to_local(src=config.model.partial_pretrain)
-    tokenizer = hf_tokenizer(local_model_path, trust_remote_code=config.model.trust_remote_code)
-    train_dataset = create_sft_dataset(config.data.train_files, config.data, tokenizer)
-    val_dataset = create_sft_dataset(config.data.val_files, config.data, tokenizer)
+    local_model_path: str = copy_to_local(src=config.model.partial_pretrain)
+    tokenizer: PreTrainedTokenizer = hf_tokenizer(local_model_path, trust_remote_code=config.model.trust_remote_code)
+    train_dataset: SFTDataset = create_sft_dataset(config.data.train_files, config.data, tokenizer)
+    val_dataset: SFTDataset = create_sft_dataset(config.data.val_files, config.data, tokenizer)
 
-    trainer = FSDPSFTTrainer(
+    trainer: FSDPSFTTrainer = FSDPSFTTrainer(
         config=config,
         device_mesh=device_mesh,
         ulysses_device_mesh=ulysses_device_mesh,
@@ -806,23 +802,17 @@ def run_sft(config: DictConfig):
 
     destroy_global_process_group()
 
-def create_sft_dataset(data_paths, data_config, tokenizer):
-    """Create a dataset."""
-    # build dataset
-    # First check if a custom dataset class is specified
+def create_sft_dataset(data_paths: str, data_config: DictConfig, tokenizer: PreTrainedTokenizer) -> SFTDataset:
     if data_config.custom_cls.get("path", None):
         from verl.utils.import_utils import load_extern_type
 
         dataset_cls = load_extern_type(data_config.custom_cls.path, data_config.custom_cls.name)
-    # Then check if multi-turn dataset should be used
     elif data_config.get("multiturn", {}).get("enable", False):
         dataset_cls = MultiTurnSFTDataset
-    # Default to single-turn dataset
     else:
         dataset_cls = SFTDataset
 
-    # Create datasets based on the selected class
-    dataset = dataset_cls(parquet_files=data_paths, tokenizer=tokenizer, config=data_config)
+    dataset: SFTDataset = dataset_cls(parquet_files=data_paths, tokenizer=tokenizer, config=data_config)
     return dataset
 
 
