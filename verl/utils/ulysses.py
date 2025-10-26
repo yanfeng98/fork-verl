@@ -1,16 +1,3 @@
-# Copyright 2024 Bytedance Ltd. and/or its affiliates
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
 """
 Utilities for DeepSpeed Ulysses Sequence Parallelism.
 DeepSpeed Ulysses Paper: https://arxiv.org/abs/2309.14509
@@ -34,30 +21,13 @@ def set_ulysses_sequence_parallel_group(group: dist.ProcessGroup):
     global _ULYSSES_SEQUENCE_PARALLEL_GROUP
     _ULYSSES_SEQUENCE_PARALLEL_GROUP = group
 
-
-def get_ulysses_sequence_parallel_group() -> Optional[dist.ProcessGroup]:
-    """
-    Get ulysses sequence parallel process group.
-    """
-    global _ULYSSES_SEQUENCE_PARALLEL_GROUP
-    return _ULYSSES_SEQUENCE_PARALLEL_GROUP
-
-
 def get_ulysses_sequence_parallel_world_size(group: ProcessGroup = None) -> int:
-    """
-    Get ulysses sequence parallel world size.
-    """
     group = get_ulysses_sequence_parallel_group() if group is None else group
     return dist.get_world_size(group) if group else 1
 
-
-def get_ulysses_sequence_parallel_rank(group: ProcessGroup = None) -> int:
-    """
-    Get ulysses sequence parallel rank.
-    """
-    group = get_ulysses_sequence_parallel_group() if group is None else group
-    return dist.get_rank(group) if group else 0
-
+def get_ulysses_sequence_parallel_group() -> Optional[dist.ProcessGroup]:
+    global _ULYSSES_SEQUENCE_PARALLEL_GROUP
+    return _ULYSSES_SEQUENCE_PARALLEL_GROUP
 
 def gather_seq_scatter_heads(
     x: Tensor,
@@ -75,92 +45,12 @@ def gather_seq_scatter_heads(
     group = get_ulysses_sequence_parallel_group() if group is None else group
     if not group:
         return x
-    sp_world = get_ulysses_sequence_parallel_world_size(group)
-    x = SeqAllToAll.apply(group, x, head_dim, seq_dim)
+    sp_world: int = get_ulysses_sequence_parallel_world_size(group)
+    x: torch.Tensor = SeqAllToAll.apply(group, x, head_dim, seq_dim)
     if unpadded_dim_size and unpadded_dim_size % sp_world != 0:
-        padding_size = x.size(seq_dim) - unpadded_dim_size
+        padding_size: int = x.size(seq_dim) - unpadded_dim_size
         x = _unpad_tensor(x, seq_dim, padding_size)
     return x
-
-
-def gather_heads_scatter_seq(x: Tensor, head_dim: int, seq_dim: int, group: ProcessGroup = None) -> Tensor:
-    """
-    A func to sync attention result with alltoall in sequence parallel
-    gather head dimension and scatter seq dim:
-    e.g. seq_dim: 1, head_dim: 2
-    [bsz, seq, h/n, ...] -> [bsz, seq/n, h, ...]
-    """
-    group = get_ulysses_sequence_parallel_group() if group is None else group
-    if not group:
-        return x
-    dim_size = x.size(seq_dim)
-    sp_world = get_ulysses_sequence_parallel_world_size(group)
-    if dim_size % sp_world != 0:
-        padding_size = sp_world - (dim_size % sp_world)
-        x = _pad_tensor(x, seq_dim, padding_size)
-    return SeqAllToAll.apply(group, x, seq_dim, head_dim, False)
-
-
-def _pad_tensor(x: Tensor, dim: int, padding_size: int) -> Tensor:
-    shape = list(x.shape)
-    shape[dim] = padding_size
-    pad = torch.zeros(shape, dtype=x.dtype, device=x.device)
-    return torch.cat([x, pad], dim=dim)
-
-
-def _unpad_tensor(x: Tensor, dim: int, padding_size: int) -> Tensor:
-    slc = [slice(None)] * len(x.shape)
-    slc[dim] = slice(0, -padding_size)
-    return x[tuple(slc)]
-
-
-def slice_input_tensor(x: Tensor, dim: int, padding: bool = True, group: ProcessGroup = None) -> Tensor:
-    group = get_ulysses_sequence_parallel_group() if group is None else group
-    sp_world_size = dist.get_world_size(group)
-    sp_rank = get_ulysses_sequence_parallel_rank()
-    dim_size = x.size(dim)
-    # pad before slice
-    if padding and dim_size % sp_world_size:
-        padding_size = sp_world_size - (dim_size % sp_world_size)
-        x = _pad_tensor(x, dim, padding_size)
-    # slice the input tensor
-    parts = x.size(dim) // sp_world_size
-    slc = [slice(None)] * len(x.shape)
-    slc[dim] = slice(sp_rank * parts, (sp_rank + 1) * parts)
-    return x[tuple(slc)].contiguous()
-
-
-def all_to_all_tensor(
-    local_input: Tensor,
-    scatter_dim: int,
-    gather_dim: int,
-    group: Optional[dist.ProcessGroup] = None,
-    async_op: bool = False,
-):
-    group = get_ulysses_sequence_parallel_group() if group is None else group
-    seq_world_size = dist.get_world_size(group)
-    input_list = [t.contiguous() for t in torch.tensor_split(local_input, seq_world_size, scatter_dim)]
-    output_list = [torch.empty_like(input_list[0]) for _ in range(seq_world_size)]
-    comm = dist.all_to_all(output_list, input_list, group=group, async_op=async_op)
-    if async_op:
-
-        def wait():
-            comm.wait()
-            return torch.cat(output_list, dim=gather_dim).contiguous()
-
-        return wait
-    return torch.cat(output_list, dim=gather_dim).contiguous()
-
-
-def all_gather_tensor(local_tensor: Tensor, group: Optional[dist.ProcessGroup] = None, async_op: bool = False):
-    group = get_ulysses_sequence_parallel_group() if group is None else group
-    sp_world_size = dist.get_world_size(group=group)
-    output_shape = list(local_tensor.shape)
-    output_shape[0] = output_shape[0] * sp_world_size
-    output = torch.empty(output_shape, dtype=local_tensor.dtype, device=local_tensor.device)
-    dist.all_gather_into_tensor(output, local_tensor, group=group, async_op=async_op)
-    return output
-
 
 class SeqAllToAll(torch.autograd.Function):
     @staticmethod
@@ -190,6 +80,85 @@ class SeqAllToAll(torch.autograd.Function):
             None,
         )
 
+def all_to_all_tensor(
+    local_input: Tensor,
+    scatter_dim: int,
+    gather_dim: int,
+    group: Optional[dist.ProcessGroup] = None,
+    async_op: bool = False,
+):
+    group = get_ulysses_sequence_parallel_group() if group is None else group
+    seq_world_size: int = dist.get_world_size(group)
+    input_list: list[torch.Tensor] = [t.contiguous() for t in torch.tensor_split(local_input, seq_world_size, scatter_dim)]
+    output_list: list[torch.Tensor] = [torch.empty_like(input_list[0]) for _ in range(seq_world_size)]
+    comm = dist.all_to_all(output_list, input_list, group=group, async_op=async_op)
+    if async_op:
+
+        def wait():
+            comm.wait()
+            return torch.cat(output_list, dim=gather_dim).contiguous()
+
+        return wait
+    return torch.cat(output_list, dim=gather_dim).contiguous()
+
+def _unpad_tensor(x: Tensor, dim: int, padding_size: int) -> Tensor:
+    slc: list[slice] = [slice(None)] * len(x.shape)
+    slc[dim] = slice(0, -padding_size)
+    return x[tuple(slc)]
+
+def gather_heads_scatter_seq(x: Tensor, head_dim: int, seq_dim: int, group: ProcessGroup = None) -> Tensor:
+    """
+    A func to sync attention result with alltoall in sequence parallel
+    gather head dimension and scatter seq dim:
+    e.g. seq_dim: 1, head_dim: 2
+    [bsz, seq, h/n, ...] -> [bsz, seq/n, h, ...]
+    """
+    group = get_ulysses_sequence_parallel_group() if group is None else group
+    if not group:
+        return x
+    dim_size: int = x.size(seq_dim)
+    sp_world: int = get_ulysses_sequence_parallel_world_size(group)
+    if dim_size % sp_world != 0:
+        padding_size: int = sp_world - (dim_size % sp_world)
+        x = _pad_tensor(x, seq_dim, padding_size)
+    return SeqAllToAll.apply(group, x, seq_dim, head_dim, False)
+
+def _pad_tensor(x: Tensor, dim: int, padding_size: int) -> Tensor:
+    shape: list[int] = list(x.shape)
+    shape[dim] = padding_size
+    pad: torch.Tensor = torch.zeros(shape, dtype=x.dtype, device=x.device)
+    return torch.cat([x, pad], dim=dim)
+
+def get_ulysses_sequence_parallel_rank(group: ProcessGroup = None) -> int:
+    """
+    Get ulysses sequence parallel rank.
+    """
+    group = get_ulysses_sequence_parallel_group() if group is None else group
+    return dist.get_rank(group) if group else 0
+
+def slice_input_tensor(x: Tensor, dim: int, padding: bool = True, group: ProcessGroup = None) -> Tensor:
+    group = get_ulysses_sequence_parallel_group() if group is None else group
+    sp_world_size = dist.get_world_size(group)
+    sp_rank = get_ulysses_sequence_parallel_rank()
+    dim_size = x.size(dim)
+    # pad before slice
+    if padding and dim_size % sp_world_size:
+        padding_size = sp_world_size - (dim_size % sp_world_size)
+        x = _pad_tensor(x, dim, padding_size)
+    # slice the input tensor
+    parts = x.size(dim) // sp_world_size
+    slc = [slice(None)] * len(x.shape)
+    slc[dim] = slice(sp_rank * parts, (sp_rank + 1) * parts)
+    return x[tuple(slc)].contiguous()
+
+def all_gather_tensor(local_tensor: Tensor, group: Optional[dist.ProcessGroup] = None, async_op: bool = False):
+    group = get_ulysses_sequence_parallel_group() if group is None else group
+    sp_world_size = dist.get_world_size(group=group)
+    output_shape = list(local_tensor.shape)
+    output_shape[0] = output_shape[0] * sp_world_size
+    output = torch.empty(output_shape, dtype=local_tensor.dtype, device=local_tensor.device)
+    dist.all_gather_into_tensor(output, local_tensor, group=group, async_op=async_op)
+    return output
 
 class Gather(torch.autograd.Function):
     @staticmethod

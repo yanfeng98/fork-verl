@@ -1,23 +1,10 @@
-# Copyright 2024 Bytedance Ltd. and/or its affiliates
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
-
 import functools
 import itertools
 import json
 import math
 import os
 from abc import ABC
+from typing import Callable
 from collections import OrderedDict
 from contextlib import contextmanager, nullcontext
 
@@ -54,17 +41,17 @@ def init_fn(x: torch.nn.Module):
     return x
 
 
-def get_init_weight_context_manager(use_meta_tensor=True, mesh: DeviceMesh = None):
+def get_init_weight_context_manager(use_meta_tensor: bool = True, mesh: DeviceMesh = None) -> Callable:
     from accelerate import init_empty_weights
 
-    cpu_init_weights = lambda: torch.device("cpu")
+    cpu_init_weights: Callable = lambda: torch.device("cpu")
     if use_meta_tensor:
         if mesh is None:
             init_context = init_empty_weights if torch.distributed.get_rank() != 0 else cpu_init_weights
         else:
             init_context = init_empty_weights if mesh.get_coordinate()[-1] != 0 else cpu_init_weights
     else:
-        init_context = cpu_init_weights
+        init_context: Callable = cpu_init_weights
     return init_context
 
 

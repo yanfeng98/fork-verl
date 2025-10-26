@@ -1,25 +1,12 @@
-# Copyright 2024 Bytedance Ltd. and/or its affiliates
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
 """
 Adapted from Cruise.
 """
 
 import torch
 
-HALF_LIST = [16, "16", "fp16", "float16", torch.float16]
-FLOAT_LIST = [32, "32", "fp32", "float32", torch.float32]
-BFLOAT_LIST = ["bf16", "bfloat16", torch.bfloat16]
+HALF_LIST: list[int|str|torch.dtype] = [16, "16", "fp16", "float16", torch.float16]
+FLOAT_LIST: list[int|str|torch.dtype] = [32, "32", "fp32", "float32", torch.float32]
+BFLOAT_LIST: list[str|torch.dtype] = ["bf16", "bfloat16", torch.bfloat16]
 
 
 class PrecisionType:
@@ -31,11 +18,22 @@ class PrecisionType:
     True
     """
 
-    HALF = "16"
-    FLOAT = "32"
-    FULL = "64"
-    BFLOAT = "bf16"
-    MIXED = "mixed"
+    HALF: str = "16"
+    FLOAT: str = "32"
+    FULL: str = "64"
+    BFLOAT: str = "bf16"
+    MIXED: str = "mixed"
+
+    @staticmethod
+    def to_dtype(precision) -> torch.dtype:
+        if precision in HALF_LIST:
+            return torch.float16
+        elif precision in FLOAT_LIST:
+            return torch.float32
+        elif precision in BFLOAT_LIST:
+            return torch.bfloat16
+        else:
+            raise RuntimeError(f"unexpected precision: {precision}")
 
     @staticmethod
     def supported_type(precision: str | int) -> bool:
@@ -56,17 +54,6 @@ class PrecisionType:
     @staticmethod
     def is_bf16(precision):
         return precision in BFLOAT_LIST
-
-    @staticmethod
-    def to_dtype(precision):
-        if precision in HALF_LIST:
-            return torch.float16
-        elif precision in FLOAT_LIST:
-            return torch.float32
-        elif precision in BFLOAT_LIST:
-            return torch.bfloat16
-        else:
-            raise RuntimeError(f"unexpected precision: {precision}")
 
     @staticmethod
     def to_str(precision):

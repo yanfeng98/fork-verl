@@ -1,16 +1,3 @@
-# Copyright 2024 Bytedance Ltd. and/or its affiliates
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
 """
 Apply monkey-patch function to models
 """
@@ -32,90 +19,6 @@ from verl.utils.ulysses import (
     get_ulysses_sequence_parallel_world_size,
     slice_input_tensor,
 )
-
-
-def repeat_kv(hidden_states: torch.Tensor, n_rep: int) -> torch.Tensor:
-    """
-    This is the equivalent of torch.repeat_interleave(x, dim=2, repeats=n_rep). The hidden states go from (batch,
-    seqlen, num_key_value_heads, head_dim) to (batch, seqlen, num_attention_heads, head_dim)
-    """
-    batch, slen, num_key_value_heads, head_dim = hidden_states.shape
-    if n_rep == 1:
-        return hidden_states
-    hidden_states = hidden_states[:, :, :, None, :].expand(batch, slen, num_key_value_heads, n_rep, head_dim)
-    return hidden_states.reshape(batch, slen, num_key_value_heads * n_rep, head_dim)
-
-
-def _ulysses_flash_attention_forward(
-    query_states: torch.Tensor,
-    key_states: torch.Tensor,
-    value_states: torch.Tensor,
-    attention_mask: Optional[torch.Tensor],
-    query_length: int,
-    *args,
-    position_ids: Optional[torch.Tensor] = None,
-    **kwargs,
-):
-    """Insert all-to-all before and after flash attention.
-    DeepSpeed-Ulysses: https://arxiv.org/pdf/2309.14509
-
-    For transformers>=4.55, the flash attention api has changed,
-    we need to pass the query_length after doing ulysses all2all.
-    See https://github.com/huggingface/transformers/issues/40399
-
-    Args:
-        query_states (torch.Tensor): (batch_size, seqlen/sp_size, nheads, head_dim)
-        key_states (torch.Tensor): (batch_size, seqlen/sp_size, nheads_k, head_dim)
-        value_states (torch.Tensor): (batch_size, seqlen/sp_size, nheads_k, head_dim)
-        position_ids (torch.Tensor, optional): (batch_size, seqlen/sp_size)
-
-    Returns:
-        torch.Tensor: (batch_size, seqlen/sp_size, nheads, head_dim)
-
-    """
-    ulysses_sp_size = get_ulysses_sequence_parallel_world_size()
-
-    ########## AlltoAll for Ulysses ##########
-    if ulysses_sp_size > 1:
-        assert position_ids is not None, "position_ids is required for Ulysses sequence parallelism"
-
-        # NOTE: repeat kv heads to be divided by sequence parallel. Instead of repeating nheads_q//nheads_k,
-        # we choose to repeat sp_size//nheads_k, since flash_attention supports MQA/GQA.
-        # For example:
-        # - nheads_k=4, sp=8, repeats=2
-        # - nheads_k=8, sp=8, repeats=1
-        # - nheads_k=16, sp=8, repeats=1
-        repeats = max(ulysses_sp_size // key_states.size(2), 1)
-        key_states = repeat_kv(key_states, repeats)
-        value_states = repeat_kv(value_states, repeats)
-
-        # (bsz, seq_len/n, n_head, head_dim) -> (bsz, seq_len, n_head/n, head_dim)
-        query_states = gather_seq_scatter_heads(query_states, seq_dim=1, head_dim=2)
-        key_states = gather_seq_scatter_heads(key_states, seq_dim=1, head_dim=2)
-        value_states = gather_seq_scatter_heads(value_states, seq_dim=1, head_dim=2)
-
-        # TODO: all_gather position_ids because `prepare_fa2_from_position_ids` needs it, we can eliminate
-        # this all_gather by passing cu_seq_lens_q, cu_seq_lens_k, max_length_k, max_length_q explicitly.
-        # https://github.com/huggingface/transformers/pull/33932
-
-        # (bsz, seq_len/n) -> (bsz, seq_len)
-        position_ids_list = [torch.empty_like(position_ids) for _ in range(ulysses_sp_size)]
-        torch.distributed.all_gather(position_ids_list, position_ids, group=get_ulysses_sequence_parallel_group())
-        position_ids = torch.concat(position_ids_list, dim=-1)
-
-    # (bsz, seq_len, n_head/n, head_dim)
-    query_length = query_states.size(1)
-    attn_output = _flash_attention_forward(
-        query_states, key_states, value_states, attention_mask, query_length, *args, position_ids=position_ids, **kwargs
-    )
-
-    ########## AlltoAll for Ulysses ##########
-    if ulysses_sp_size > 1:
-        # (bsz, seq_len, n_head/n, head_dim) -> (bsz, seq_len/n, n_head, head_dim)
-        attn_output = gather_heads_scatter_seq(attn_output, seq_dim=1, head_dim=2)
-
-    return attn_output
-
 
 def patch_vlm_for_ulysses_input_slicing(model_class: type):
     """
@@ -192,75 +95,16 @@ def patch_vlm_for_ulysses_input_slicing(model_class: type):
     model_class.forward = wrapped_forward
     print(f"Monkey patch {model_class.__name__}.forward for Ulysses SP input slicing.")
 
-
-def patch_forward_with_backends(
-    model: PreTrainedModel,
-    use_fused_kernels: bool = False,
-    fused_kernels_backend: str = None,
-):
-    """
-    Choose the forward function based on the model and backend.
-    Args:
-        model (PreTrainedModel): The model to apply the monkey patch.
-        use_fused_kernels (bool): Whether to use fused kernels.
-        fused_kernels_backend (str): The backend to use for fused kernels.
-    """
-    if not use_fused_kernels or fused_kernels_backend not in ["triton", "torch"]:
-        print(
-            f"Skipping monkey patch for {model.__class__.__name__} as use_fused_kernels is "
-            f"{use_fused_kernels} or fused_kernels_backend is {fused_kernels_backend}"
-        )
-        return
-
-    forward_with_torch_backend_function = model.__class__.forward
-    forward_with_triton_backend_function = model.__class__.forward
-    if model.config.model_type in ["qwen2_5_vl", "qwen2_vl"]:
-        from verl.models.transformers.qwen2_vl import forward_with_torch_backend, forward_with_triton_backend
-
-        forward_with_torch_backend_function = forward_with_torch_backend
-        forward_with_triton_backend_function = forward_with_triton_backend
-    elif model.config.model_type in ["qwen3_vl", "qwen3_vl_moe"]:
-        from verl.models.transformers.qwen3_vl import forward_with_torch_backend, forward_with_triton_backend
-
-        forward_with_torch_backend_function = forward_with_torch_backend
-        forward_with_triton_backend_function = forward_with_triton_backend
-    elif model.config.model_type == "glm4v":
-        from verl.models.transformers.glm4v import forward_with_torch_backend, forward_with_triton_backend
-
-        forward_with_torch_backend_function = forward_with_torch_backend
-        forward_with_triton_backend_function = forward_with_triton_backend
-    else:
-        from verl.models.transformers.dense_common import forward_with_torch_backend, forward_with_triton_backend
-
-        forward_with_torch_backend_function = forward_with_torch_backend
-        forward_with_triton_backend_function = forward_with_triton_backend
-
-    if fused_kernels_backend == "triton":
-        model.__class__.forward = forward_with_triton_backend_function
-        print(f"Using Triton backend for fused kernels in {model.__class__.__name__}")
-    elif fused_kernels_backend == "torch":
-        model.__class__.forward = forward_with_torch_backend_function
-        print(f"Using Torch backend for fused kernels in {model.__class__.__name__}")
-    else:
-        raise ValueError(f"Unsupported fused_kernels_backend: {fused_kernels_backend}. Choose 'triton' or 'torch'.")
-
-
 def apply_monkey_patch(
     model: PreTrainedModel,
     ulysses_sp_size: int = 1,
     use_remove_padding: bool = True,
     use_fused_kernels: bool = False,
     fused_kernels_backend: str = None,
-):
-    """
-    Apply monkey patch to the models for ulysses sequence parallel and fused kernel.
-
-    In the end of this function forward function of the model is patched for fused kernel.
-    If the model is not supported with fused kernel, please return after patch.
-    """
+) -> None:
 
     """Replace _flash_attention_forward to _ulysses_flash_attention_forward"""
-    module = sys.modules[model.__module__]
+    module: str = sys.modules[model.__module__]
 
     try:
         num_attention_heads, num_key_value_heads = model.config.num_attention_heads, model.config.num_key_value_heads
@@ -275,7 +119,7 @@ def apply_monkey_patch(
     )
     assert num_key_value_heads % ulysses_sp_size == 0 or ulysses_sp_size % num_key_value_heads == 0, (
         f"num_key_value_heads {num_key_value_heads} must be divisible by ulysses_sp_size "
-        f"{ulysses_sp_size}or vise versa. Upon ulysses_sp_size % num_key_value_heads == 0,"
+        f"{ulysses_sp_size} or vise versa. Upon ulysses_sp_size % num_key_value_heads == 0,"
         f"kv heads are repeated to ensure correctness."
     )
 
@@ -423,3 +267,128 @@ def apply_monkey_patch(
             print(f"Monkey patch _flash_attention_forward in {flash_attention.__name__}")
 
     patch_forward_with_backends(model, use_fused_kernels=use_fused_kernels, fused_kernels_backend=fused_kernels_backend)
+
+def _ulysses_flash_attention_forward(
+    query_states: torch.Tensor,
+    key_states: torch.Tensor,
+    value_states: torch.Tensor,
+    attention_mask: Optional[torch.Tensor],
+    query_length: int,
+    *args,
+    position_ids: Optional[torch.Tensor] = None,
+    **kwargs,
+) -> torch.Tensor:
+    """Insert all-to-all before and after flash attention.
+    DeepSpeed-Ulysses: https://arxiv.org/pdf/2309.14509
+
+    For transformers>=4.55, the flash attention api has changed,
+    we need to pass the query_length after doing ulysses all2all.
+    See https://github.com/huggingface/transformers/issues/40399
+
+    Args:
+        query_states (torch.Tensor): (batch_size, seqlen/sp_size, nheads, head_dim)
+        key_states (torch.Tensor): (batch_size, seqlen/sp_size, nheads_k, head_dim)
+        value_states (torch.Tensor): (batch_size, seqlen/sp_size, nheads_k, head_dim)
+        position_ids (torch.Tensor, optional): (batch_size, seqlen/sp_size)
+
+    Returns:
+        torch.Tensor: (batch_size, seqlen/sp_size, nheads, head_dim)
+
+    """
+    ulysses_sp_size: int = get_ulysses_sequence_parallel_world_size()
+
+    ########## AlltoAll for Ulysses ##########
+    if ulysses_sp_size > 1:
+        assert position_ids is not None, "position_ids is required for Ulysses sequence parallelism"
+
+        # NOTE: repeat kv heads to be divided by sequence parallel. Instead of repeating nheads_q//nheads_k,
+        # we choose to repeat sp_size//nheads_k, since flash_attention supports MQA/GQA.
+        # For example:
+        # - nheads_k=4, sp=8, repeats=2
+        # - nheads_k=8, sp=8, repeats=1
+        # - nheads_k=16, sp=8, repeats=1
+        repeats: int = max(ulysses_sp_size // key_states.size(2), 1)
+        key_states: torch.Tensor = repeat_kv(key_states, repeats)
+        value_states: torch.Tensor = repeat_kv(value_states, repeats)
+
+        # (bsz, seq_len/n, n_head, head_dim) -> (bsz, seq_len, n_head/n, head_dim)
+        query_states = gather_seq_scatter_heads(query_states, seq_dim=1, head_dim=2)
+        key_states = gather_seq_scatter_heads(key_states, seq_dim=1, head_dim=2)
+        value_states = gather_seq_scatter_heads(value_states, seq_dim=1, head_dim=2)
+
+        # TODO: all_gather position_ids because `prepare_fa2_from_position_ids` needs it, we can eliminate
+        # this all_gather by passing cu_seq_lens_q, cu_seq_lens_k, max_length_k, max_length_q explicitly.
+        # https://github.com/huggingface/transformers/pull/33932
+
+        # (bsz, seq_len/n) -> (bsz, seq_len)
+        position_ids_list: list[torch.Tensor] = [torch.empty_like(position_ids) for _ in range(ulysses_sp_size)]
+        torch.distributed.all_gather(position_ids_list, position_ids, group=get_ulysses_sequence_parallel_group())
+        position_ids = torch.concat(position_ids_list, dim=-1)
+
+    # (bsz, seq_len, n_head/n, head_dim)
+    query_length: int = query_states.size(1)
+    attn_output: torch.Tensor = _flash_attention_forward(
+        query_states, key_states, value_states, attention_mask, query_length, *args, position_ids=position_ids, **kwargs
+    )
+
+    ########## AlltoAll for Ulysses ##########
+    if ulysses_sp_size > 1:
+        # (bsz, seq_len, n_head/n, head_dim) -> (bsz, seq_len/n, n_head, head_dim)
+        attn_output = gather_heads_scatter_seq(attn_output, seq_dim=1, head_dim=2)
+
+    return attn_output
+
+def repeat_kv(hidden_states: torch.Tensor, n_rep: int) -> torch.Tensor:
+    """
+    This is the equivalent of torch.repeat_interleave(x, dim=2, repeats=n_rep). The hidden states go from (batch,
+    seqlen, num_key_value_heads, head_dim) to (batch, seqlen, num_attention_heads, head_dim)
+    """
+    batch, slen, num_key_value_heads, head_dim = hidden_states.shape
+    if n_rep == 1:
+        return hidden_states
+    hidden_states = hidden_states[:, :, :, None, :].expand(batch, slen, num_key_value_heads, n_rep, head_dim)
+    return hidden_states.reshape(batch, slen, num_key_value_heads * n_rep, head_dim)
+
+def patch_forward_with_backends(
+    model: PreTrainedModel,
+    use_fused_kernels: bool = False,
+    fused_kernels_backend: str = None,
+) -> None:
+    if not use_fused_kernels or fused_kernels_backend not in ["triton", "torch"]:
+        print(
+            f"Skipping monkey patch for {model.__class__.__name__} as use_fused_kernels is "
+            f"{use_fused_kernels} or fused_kernels_backend is {fused_kernels_backend}"
+        )
+        return
+
+    forward_with_torch_backend_function = model.__class__.forward
+    forward_with_triton_backend_function = model.__class__.forward
+    if model.config.model_type in ["qwen2_5_vl", "qwen2_vl"]:
+        from verl.models.transformers.qwen2_vl import forward_with_torch_backend, forward_with_triton_backend
+
+        forward_with_torch_backend_function = forward_with_torch_backend
+        forward_with_triton_backend_function = forward_with_triton_backend
+    elif model.config.model_type in ["qwen3_vl", "qwen3_vl_moe"]:
+        from verl.models.transformers.qwen3_vl import forward_with_torch_backend, forward_with_triton_backend
+
+        forward_with_torch_backend_function = forward_with_torch_backend
+        forward_with_triton_backend_function = forward_with_triton_backend
+    elif model.config.model_type == "glm4v":
+        from verl.models.transformers.glm4v import forward_with_torch_backend, forward_with_triton_backend
+
+        forward_with_torch_backend_function = forward_with_torch_backend
+        forward_with_triton_backend_function = forward_with_triton_backend
+    else:
+        from verl.models.transformers.dense_common import forward_with_torch_backend, forward_with_triton_backend
+
+        forward_with_torch_backend_function = forward_with_torch_backend
+        forward_with_triton_backend_function = forward_with_triton_backend
+
+    if fused_kernels_backend == "triton":
+        model.__class__.forward = forward_with_triton_backend_function
+        print(f"Using Triton backend for fused kernels in {model.__class__.__name__}")
+    elif fused_kernels_backend == "torch":
+        model.__class__.forward = forward_with_torch_backend_function
+        print(f"Using Torch backend for fused kernels in {model.__class__.__name__}")
+    else:
+        raise ValueError(f"Unsupported fused_kernels_backend: {fused_kernels_backend}. Choose 'triton' or 'torch'.")

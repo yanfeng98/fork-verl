@@ -46,16 +46,6 @@ def is_nvtx_available():
         nvtx_spec = None
     return nvtx_spec is not None
 
-
-@cache
-def is_trl_available():
-    try:
-        trl_spec = importlib.util.find_spec("trl")
-    except ModuleNotFoundError:
-        trl_spec = None
-    return trl_spec is not None
-
-
 def import_external_libs(external_libs=None):
     if external_libs is None:
         return
@@ -99,6 +89,13 @@ def load_extern_type(file_path: Optional[str], type_name: Optional[str]) -> type
 
     return getattr(module, type_name)
 
+@cache
+def is_trl_available():
+    try:
+        trl_spec = importlib.util.find_spec("trl")
+    except ModuleNotFoundError:
+        trl_spec = None
+    return trl_spec is not None
 
 def _get_qualified_name(func):
     """Get full qualified name including module and class (if any)."""

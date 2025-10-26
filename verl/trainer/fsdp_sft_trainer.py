@@ -13,6 +13,7 @@ os.environ["TOKENIZERS_PARALLELISM"] = "true"
 import logging
 import re
 import time
+from typing import Callable
 from contextlib import nullcontext
 
 import hydra
@@ -101,10 +102,8 @@ class FSDPSFTTrainer:
 
         self._build_dataloader(train_dataset, val_dataset)
 
-        # Initialize resume-related variables
-        self.resume_global_step = 0
+        self.resume_global_step: int = 0
 
-        # build model
         self._build_model_optimizer()
 
         # Initialize checkpoint manager
@@ -129,7 +128,7 @@ class FSDPSFTTrainer:
 
         assert self.config.data.train_batch_size % self.config.data.micro_batch_size_per_gpu == 0
 
-    def _build_dataloader(self, train_dataset: Dataset, val_dataset: Dataset):
+    def _build_dataloader(self, train_dataset: Dataset, val_dataset: Dataset) -> None:
         config: DictConfig = self.config
         self.train_dataset, self.val_dataset = train_dataset, val_dataset
 
@@ -151,10 +150,10 @@ class FSDPSFTTrainer:
 
         device_name: str = get_device_name()
 
-        self.train_sampler = DistributedSampler(
+        self.train_sampler: DistributedSampler = DistributedSampler(
             self.train_dataset, shuffle=True, num_replicas=world_size, rank=rank, drop_last=True
         )
-        self.train_dataloader = StatefulDataLoader(
+        self.train_dataloader: StatefulDataLoader = StatefulDataLoader(
             dataset=self.train_dataset,
             batch_size=config.data.train_batch_size,
             sampler=self.train_sampler,
@@ -164,10 +163,10 @@ class FSDPSFTTrainer:
             pin_memory_device=device_name,
         )
 
-        self.val_sampler = DistributedSampler(
+        self.val_sampler: DistributedSampler = DistributedSampler(
             self.val_dataset, shuffle=False, num_replicas=world_size, rank=rank, drop_last=True
         )
-        self.val_dataloader = StatefulDataLoader(
+        self.val_dataloader: StatefulDataLoader = StatefulDataLoader(
             dataset=self.val_dataset,
             batch_size=config.data.micro_batch_size_per_gpu,
             sampler=self.val_sampler,
@@ -178,25 +177,21 @@ class FSDPSFTTrainer:
         )
 
     def _build_model_optimizer(self):
-        # TODO (zhangchi.usc1992):
-        # 1. support pretrain from random weights
-        # 2. support init directly from sharded weights
-        local_model_path = copy_to_local(src=self.config.model.partial_pretrain)
+        local_model_path: str = copy_to_local(src=self.config.model.partial_pretrain)
 
         if self.config.model.get("external_lib", None) is not None:
-            # This is used to import external_lib into the huggingface systems
             import importlib
 
             importlib.import_module(self.config.model.external_lib)
 
         log_gpu_memory_usage("Before model allocation", logger=logger)
 
-        trust_remote_code = self.config.model.trust_remote_code
-        torch_dtype = self.config.model.fsdp_config.get("model_dtype", "fp32")
-        torch_dtype = PrecisionType.to_dtype(torch_dtype)
-        # load config first
-        config = AutoConfig.from_pretrained(local_model_path, trust_remote_code=trust_remote_code)
-        self.model_config = config
+        trust_remote_code: bool = self.config.model.trust_remote_code
+        torch_dtype: str = self.config.model.fsdp_config.get("model_dtype", "fp32")
+        torch_dtype: torch.dtype = PrecisionType.to_dtype(torch_dtype)
+
+        config: AutoConfig = AutoConfig.from_pretrained(local_model_path, trust_remote_code=trust_remote_code)
+        self.model_config: AutoConfig = config
         if hasattr(self.model_config, "max_position_embeddings"):
             self.model_config.max_position_embeddings = max(
                 self.model_config.max_position_embeddings, self.config.data.max_length
@@ -204,8 +199,7 @@ class FSDPSFTTrainer:
         if self.config.ulysses_sequence_parallel_size > 1:
             assert self.use_remove_padding, "Sequence parallel is only supported when remove_padding is enabled"
 
-        # This may be very large
-        init_context = get_init_weight_context_manager(
+        init_context: Callable = get_init_weight_context_manager(
             use_meta_tensor=not config.tie_word_embeddings, mesh=self.device_mesh
         )
 
@@ -231,7 +225,6 @@ class FSDPSFTTrainer:
 
             if self.config.model.get("lora_rank", 0) > 0:
                 self.model.enable_input_require_grads()
-                # Convert config to regular Python types before creating PEFT model
                 lora_config = {
                     "task_type": TaskType.CAUSAL_LM,
                     "r": self.config.model.lora_rank,
@@ -247,7 +240,7 @@ class FSDPSFTTrainer:
 
         log_gpu_memory_usage("After model allocation", logger=logger)
 
-        mixed_precision = MixedPrecision(
+        mixed_precision: MixedPrecision = MixedPrecision(
             param_dtype=torch.bfloat16, reduce_dtype=torch.float32, buffer_dtype=torch.float32
         )
 

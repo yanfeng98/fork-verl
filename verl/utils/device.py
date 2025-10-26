@@ -1,4 +1,5 @@
 import logging
+from typing import Any
 
 import torch
 
@@ -33,24 +34,21 @@ def get_nccl_backend() -> str:
     else:
         raise RuntimeError(f"No available nccl backend found on device type {get_device_name()}.")
 
+def get_torch_device() -> Any:
+
+    device_name: str = get_device_name()
+    try:
+        return getattr(torch, device_name)
+    except AttributeError:
+        logger.warning(f"Device namespace '{device_name}' not found in torch, try to load torch.cuda.")
+        return torch.cuda
+
 def get_visible_devices_keyword() -> str:
     """Function that gets visible devices keyword name.
     Returns:
         'CUDA_VISIBLE_DEVICES' or `ASCEND_RT_VISIBLE_DEVICES`
     """
     return "CUDA_VISIBLE_DEVICES" if is_cuda_available else "ASCEND_RT_VISIBLE_DEVICES"
-
-def get_torch_device() -> any:
-    """Return the corresponding torch attribute based on the device type string.
-    Returns:
-        module: The corresponding torch device namespace, or torch.cuda if not found.
-    """
-    device_name = get_device_name()
-    try:
-        return getattr(torch, device_name)
-    except AttributeError:
-        logger.warning(f"Device namespace '{device_name}' not found in torch, try to load torch.cuda.")
-        return torch.cuda
 
 
 def get_device_id() -> int:

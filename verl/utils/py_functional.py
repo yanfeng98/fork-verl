@@ -306,7 +306,6 @@ def temp_env_var(key: str, value: str):
 
 
 def convert_to_regular_types(obj):
-    """Convert Hydra configs and other special types to regular Python types."""
     from omegaconf import DictConfig, ListConfig
 
     if isinstance(obj, ListConfig | DictConfig):
