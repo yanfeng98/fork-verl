@@ -1,10 +1,3 @@
-"""
-A lightweight one-file FSDP SFT Trainer
-TODO(zhangchi.usc1992)
-- Add calculation of mfu
-- Add validation
-"""
-
 import os
 
 os.environ["NCCL_DEBUG"] = "WARN"
@@ -31,6 +24,7 @@ from torchdata.stateful_dataloader import StatefulDataLoader
 from tqdm import tqdm
 from transformers import AutoConfig, AutoModelForCausalLM, PreTrainedTokenizer, PreTrainedModel
 
+from verl.utils import hf_tokenizer
 import verl.utils.hdfs_io as hdfs_io
 from verl.utils.attention_utils import index_first_axis, pad_input, rearrange, unpad_input
 from verl.utils.checkpoint.checkpoint_manager import find_latest_ckpt_path, get_checkpoint_tracker_filename
@@ -774,8 +768,6 @@ def run_sft(config: DictConfig):
         mesh_shape=(dp_size, config.ulysses_sequence_parallel_size),
         mesh_dim_names=("dp", "sp"),
     )
-
-    from verl.utils import hf_tokenizer
 
     local_model_path: str = copy_to_local(src=config.model.partial_pretrain)
     tokenizer: PreTrainedTokenizer = hf_tokenizer(local_model_path, trust_remote_code=config.model.trust_remote_code)

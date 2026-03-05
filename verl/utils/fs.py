@@ -25,12 +25,6 @@ def md5_encode(path: str) -> str:
 
 
 def verify_copy(src: str, dest: str) -> bool:
-    """
-    verify the copy of src to dest by comparing their sizes and file structures.
-
-    return:
-        bool: True if the copy is verified, False otherwise.
-    """
     if not os.path.exists(src):
         return False
     if not os.path.exists(dest):
@@ -40,43 +34,43 @@ def verify_copy(src: str, dest: str) -> bool:
         return False
 
     if os.path.isfile(src):
-        src_size = os.path.getsize(src)
-        dest_size = os.path.getsize(dest)
+        src_size: int = os.path.getsize(src)
+        dest_size: int = os.path.getsize(dest)
         if src_size != dest_size:
             return False
         return True
 
-    src_files = set()
-    dest_files = set()
+    src_files: set[str] = set()
+    dest_files: set[str] = set()
 
     for root, dirs, files in os.walk(src):
-        rel_path = os.path.relpath(root, src)
-        dest_root = os.path.join(dest, rel_path) if rel_path != "." else dest
+        rel_path: str = os.path.relpath(root, src)
+        dest_root: str = os.path.join(dest, rel_path) if rel_path != "." else dest
 
         if not os.path.exists(dest_root):
             return False
 
         for entry in os.listdir(root):
-            src_entry = os.path.join(root, entry)
+            src_entry: str = os.path.join(root, entry)
             src_files.add(os.path.relpath(src_entry, src))
 
         for entry in os.listdir(dest_root):
-            dest_entry = os.path.join(dest_root, entry)
+            dest_entry: str = os.path.join(dest_root, entry)
             dest_files.add(os.path.relpath(dest_entry, dest))
 
     if src_files != dest_files:
         return False
 
     for rel_path in src_files:
-        src_entry = os.path.join(src, rel_path)
-        dest_entry = os.path.join(dest, rel_path)
+        src_entry: str = os.path.join(src, rel_path)
+        dest_entry: str = os.path.join(dest, rel_path)
 
         if os.path.isdir(src_entry) != os.path.isdir(dest_entry):
             return False
 
         if os.path.isfile(src_entry):
-            src_size = os.path.getsize(src_entry)
-            dest_size = os.path.getsize(dest_entry)
+            src_size: int = os.path.getsize(src_entry)
+            dest_size: int = os.path.getsize(dest_entry)
             if src_size != dest_size:
                 return False
 

@@ -24,7 +24,7 @@ Note that
 ## Scripts
 To create the dataset, run
 ```bash
-python3 create_dataset.py
+python create_dataset.py
 ```
 We create a train set and a val set. Both of them are used of SFT and RL. You can specify the total number of data, min/max length and data path.
 
