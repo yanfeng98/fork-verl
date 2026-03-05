@@ -46,13 +46,13 @@ def is_equiv(str1, str2, verbose=False):
         return str1 == str2
 
 
-def remove_boxed(s):
+def remove_boxed(s: str) -> str:
     if "\\boxed " in s:
-        left = "\\boxed "
+        left: str = "\\boxed "
         assert s[: len(left)] == left
         return s[len(left) :]
 
-    left = "\\boxed{"
+    left: str = "\\boxed{"
 
     assert s[: len(left)] == left
     assert s[-1] == "}"
@@ -60,8 +60,8 @@ def remove_boxed(s):
     return s[len(left) : -1]
 
 
-def last_boxed_only_string(string):
-    idx = string.rfind("\\boxed")
+def last_boxed_only_string(string: str) -> str | None:
+    idx: int = string.rfind("\\boxed")
     if "\\boxed " in string:
         return "\\boxed " + string.split("\\boxed ")[-1].split("$")[0]
     if idx < 0:
@@ -69,9 +69,9 @@ def last_boxed_only_string(string):
         if idx < 0:
             return None
 
-    i = idx
-    right_brace_idx = None
-    num_left_braces_open = 0
+    i: int = idx
+    right_brace_idx: int = None
+    num_left_braces_open: int = 0
     while i < len(string):
         if string[i] == "{":
             num_left_braces_open += 1
@@ -82,7 +82,7 @@ def last_boxed_only_string(string):
                 break
         i += 1
 
-    retval = None if right_brace_idx is None else string[idx : right_brace_idx + 1]
+    retval: str = None if right_brace_idx is None else string[idx : right_brace_idx + 1]
 
     return retval
 
